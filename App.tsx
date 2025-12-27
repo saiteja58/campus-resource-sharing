@@ -1,3 +1,8 @@
+import { EventProvider } from "./context/EventContext";
+import Events from "./pages/Events";
+import CreateEvent from "./pages/CreateEvent";
+import EventDetails from "./pages/EventDetails";
+
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { getGeminiChatResponse } from "./services/geminiChat";
 import MyPostsPage from "./MyPostsPage";
@@ -41,6 +46,12 @@ const BADGE_META: Record<
   string,
   { title: string; icon: string; bg: string }
 > = {
+  "Community Insider": {
+  title: "Community Insider",
+  icon: "🧠",
+  bg: "bg-purple-100",
+},
+
   "First Upload": {
     title: "First Upload",
     icon: "📚",
@@ -300,6 +311,12 @@ const Header = ({
         >
           Dashboard
         </Link>
+        <Link
+  to="/events"
+  className="text-sm font-semibold text-slate-500 hover:text-indigo-600 transition-colors"
+>
+  PostEvents
+</Link>
         <Link 
         className="text-sm font-semibold text-slate-500 hover:text-indigo-600 transition-colors"
         to="/my-posts"
@@ -968,6 +985,23 @@ const ResourceDetailModal = ({
         timestamp: Date.now(),
       });
       await awardPoints(user.id, 1, "comments", "comment");
+      // 🥚 Easter Egg Badge
+if (commentText.toLowerCase().includes("hydrashare")) {
+  const userRef = ref(rtdb, `users/${user.id}`);
+
+  await update(userRef, {
+    [`badges/Community Insider`]: true,
+  });
+
+  setTimeout(() => {
+    window.dispatchEvent(
+      new CustomEvent("badge-earned", {
+        detail: "Community Insider",
+      })
+    );
+  }, 100);
+}
+
       setCommentText("");
     } catch (e) {
       console.error(e);
@@ -1522,7 +1556,25 @@ const handler = (e: any) => {
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
   const [reqMsg, setReqMsg] = useState("");
   const [loading, setLoading] = useState(true);
+const platformStats = useMemo(() => {
+  const totalResources = resources.length;
 
+  const totalDownloads = resources.reduce(
+    (sum, r) => sum + (r.downloadCount || 0),
+    0
+  );
+
+  const totalViews = resources.reduce(
+    (sum, r) => sum + (r.viewCount || 0),
+    0
+  );
+
+  return {
+    totalResources,
+    totalDownloads,
+    totalViews,
+  };
+}, [resources]);
 
 
 
@@ -1622,22 +1674,34 @@ const userData: User = {
       </div>
     );
 
-  return (
+    return (
+  <EventProvider>
     <HashRouter>
       <div className="min-h-screen flex flex-col bg-[#fafafa]">
         <Header user={currentUser} onLogout={handleLogout} />
         <main className="flex-grow">
           <Routes>
-            <Route
-              path="/"
-              element={
-                <HomePage
-                  resources={resources}
-                  onSelectDetail={setSelectedDetailId}
-                  onRequest={setShowRequestModal}
-                />
-              }
+            <Route path="/events" element={<Events />} />
+
+          <Route
+            path="/events/create"
+            element={
+            currentUser ? <CreateEvent /> : <Navigate to="/auth" />
+            }
             />
+
+          <Route path="/events/:id" element={<EventDetails />} />
+<Route
+  path="/"
+  element={
+    <HomePage
+      resources={resources}
+      stats={platformStats}
+      onSelectDetail={setSelectedDetailId}
+      onRequest={setShowRequestModal}
+    />
+  }
+/>
             <Route
               path="/auth"
               element={<AuthPage onDemoLogin={setCurrentUser} />}
@@ -1949,29 +2013,34 @@ const userData: User = {
             </div>
           </div>
         )}
+      </div>    
         {earnedBadge && (
   <BadgeCongratsModal
     badge={earnedBadge}
     onClose={() => setEarnedBadge(null)}
   />
 )}
-
-      </div>
     </HashRouter>
-  );
+  </EventProvider>
+);
 };
 
 // --- HomePage Component ---
 const HomePage = ({
   resources,
+  stats,
   onRequest,
   onSelectDetail,
 }: {
   resources: Resource[];
+  stats: {
+    totalResources: number;
+    totalDownloads: number;
+    totalViews: number;
+  };
   onRequest: (id: string) => void;
   onSelectDetail: (id: string) => void;
 }) => {
-  
   const [query, setQuery] = useState("");
   const [selectedCat, setSelectedCat] = useState<string>("All");
   const [recommendations, setRecommendations] = useState<
@@ -2059,18 +2128,7 @@ const filtered = resources.filter((r) => {
 
   return matchesSearch && matchesCat && matchesGenre;
 });
-<div className="mb-10 flex justify-end">
-  <select
-    value={sortBy}
-    onChange={(e) => setSortBy(e.target.value as SortOption)}
-    className="px-6 py-3 rounded-2xl border border-slate-100 bg-white text-xs font-bold shadow-sm"
-  >
-    <option value="newest">Newest First</option>
-    <option value="rating">Highest Rated</option>
-    <option value="comments">Most Commented</option>
-    <option value="popularity">Most Popular</option>
-  </select>
-</div>
+
 
 const sortedResources = useMemo(() => {
   const arr = [...filtered];
@@ -2211,6 +2269,35 @@ if (sortBy === "popularity") {
           />
         </div>
       </section>
+{/* 📊 Platform Stats Bar */}
+<div className="mb-12 grid grid-cols-1 sm:grid-cols-3 gap-6">
+  <div className="bg-white rounded-2xl p-6 text-center shadow-sm border">
+    <p className="text-3xl font-black text-indigo-600">
+      {stats.totalResources}
+    </p>
+    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+      Resources Shared
+    </p>
+  </div>
+
+  <div className="bg-white rounded-2xl p-6 text-center shadow-sm border">
+    <p className="text-3xl font-black text-green-600">
+      {stats.totalDownloads}
+    </p>
+    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+      Downloads
+    </p>
+  </div>
+
+  <div className="bg-white rounded-2xl p-6 text-center shadow-sm border">
+    <p className="text-3xl font-black text-amber-600">
+      {stats.totalViews}
+    </p>
+    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+      Views
+    </p>
+  </div>
+</div>
 
         
 
@@ -2307,6 +2394,7 @@ if (sortBy === "popularity") {
   </div>
 )}
 {/* Sorting Dropdown */}
+{/* Sorting Dropdown */}
 <div className="mb-10 flex justify-end">
   <select
     value={sortBy}
@@ -2319,6 +2407,7 @@ if (sortBy === "popularity") {
     <option value="popularity">Most Popular</option>
   </select>
 </div>
+
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10">
         {sortedResources.map((res) => (
