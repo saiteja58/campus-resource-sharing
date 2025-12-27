@@ -4,9 +4,11 @@ export type Category = 'Books' | 'Notes' | 'Lab Equipment' | 'Electronics' | 'Ot
 export interface User {
   id: string;
   name: string;
-  college: string;
   email: string;
-  password?: string;
+  college: string;
+  points?: number;
+  tier?: string;
+  badges?: Record<string, boolean>;
 }
 
 export interface Comment {
