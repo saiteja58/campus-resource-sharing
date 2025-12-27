@@ -6,10 +6,20 @@ export interface User {
   name: string;
   email: string;
   college: string;
+
   points?: number;
   tier?: string;
+
   badges?: Record<string, boolean>;
+
+  stats?: {
+    uploads?: number;
+    comments?: number;
+    ratingsGiven?: number;
+    ratingsReceived?: number;
+  };
 }
+
 
 export interface Comment {
   id: string;
@@ -38,8 +48,6 @@ export interface Resource {
   ownerName: string;
   college: string;
   status: 'available' | 'borrowed';
-  imageUrl: string;
-  documentUrl?: string;
   genre?: string;
   createdAt: number;
 
