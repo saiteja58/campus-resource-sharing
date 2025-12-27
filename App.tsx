@@ -1252,18 +1252,32 @@ const App: React.FC = () => {
   };
 
   const handleSendReq = async () => {
-    if (!showRequestModal || !currentUser) return;
-    await set(push(ref(rtdb, "requests")), {
-      resourceId: showRequestModal,
-      requesterId: currentUser.id,
-      requesterName: currentUser.name,
-      status: "pending",
-      message: reqMsg,
-      timestamp: Date.now(),
-    });
-    setShowRequestModal(null);
-    setReqMsg("");
-  };
+  if (!showRequestModal || !currentUser || !reqMsg.trim()) return;
+
+  const requestRef = push(ref(rtdb, "requests"));
+
+  const messageRef = push(ref(rtdb, `requests/${requestRef.key}/messages`));
+
+  await set(requestRef, {
+    resourceId: showRequestModal,
+    requesterId: currentUser.id,
+    requesterName: currentUser.name,
+    status: "pending",
+    timestamp: Date.now(),
+  });
+
+  await set(messageRef, {
+    id: messageRef.key,
+    senderId: currentUser.id,
+    senderName: currentUser.name,
+    text: reqMsg,
+    timestamp: Date.now(),
+  });
+
+  setShowRequestModal(null);
+  setReqMsg("");
+};
+
 
   const handleAcceptRequest = async (reqId: string) => {
     await update(ref(rtdb, `requests/${reqId}`), { status: "accepted" });
