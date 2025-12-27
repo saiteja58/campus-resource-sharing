@@ -2031,8 +2031,6 @@ const userData: User = {
     onClose={() => setEarnedBadge(null)}
   />
 )}
-
-      </div>
     </HashRouter>
   </EventProvider>
 );
