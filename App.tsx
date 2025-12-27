@@ -1692,16 +1692,6 @@ const userData: User = {
 
           <Route path="/events/:id" element={<EventDetails />} />
 
-            <Route
-              path="/"
-              element={
-                <HomePage
-                  resources={resources}
-                  onSelectDetail={setSelectedDetailId}
-                  onRequest={setShowRequestModal}
-                />
-              }
-            />
 <Route
   path="/"
   element={
