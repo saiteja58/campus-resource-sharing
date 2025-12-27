@@ -36,6 +36,7 @@ export interface Resource {
   status: 'available' | 'borrowed';
   imageUrl: string;
   documentUrl?: string;
+  genre?: string;
   createdAt: number;
   comments?: Record<string, Comment>;
   ratings?: Record<string, number>; // userId -> rating (1-5)

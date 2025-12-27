@@ -234,16 +234,19 @@ const Footer = () => (
 // --- Post Resource Page ---
 const PostResourcePage = ({ user }: { user: User }) => {
   const navigate = useNavigate();
-  const [formData, setFormData] = useState({
-    title: "",
-    description: "",
-    category: "Books" as Category,
-  });
+const [formData, setFormData] = useState({
+  title: "",
+  description: "",
+  category: "Books" as Category,
+  genre: "",
+});
   const [img, setImg] = useState<File | null>(null);
   const [pdf, setPdf] = useState<File | null>(null);
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
   const [isPosting, setIsPosting] = useState(false);
   const [isSuggesting, setIsSuggesting] = useState(false);
+  const [existingGenres, setExistingGenres] = useState<string[]>([]);
+
 
   useEffect(() => {
     if (pdf) {
@@ -254,6 +257,23 @@ const PostResourcePage = ({ user }: { user: User }) => {
       setPdfPreviewUrl(null);
     }
   }, [pdf]);
+
+  useEffect(() => {
+  onValue(ref(rtdb, "resources"), (snap) => {
+    const data = snap.val();
+    if (!data) return;
+
+    const genres = new Set<string>();
+    Object.values(data).forEach((r: any) => {
+      if (r.category === "Books" && r.genre) {
+        genres.add(r.genre);
+      }
+    });
+
+    setExistingGenres(Array.from(genres).sort());
+  });
+}, []);
+
 
   const handleAutoCategorize = async () => {
     if (!formData.title || !formData.description) return;
@@ -400,6 +420,30 @@ const PostResourcePage = ({ user }: { user: User }) => {
                   ))}
                 </select>
               </div>
+              {formData.category === "Books" && (
+  <div>
+    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block ml-1">
+      Book Genre
+    </label>
+
+    <input
+      list="book-genre-list"
+      placeholder="e.g. Engineering Mathematics"
+      className="w-full px-5 py-4 rounded-2xl bg-slate-50 border border-slate-100 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none text-slate-900 text-sm font-bold"
+      value={formData.genre}
+      onChange={(e) =>
+        setFormData({ ...formData, genre: e.target.value })
+      }
+      required
+    />
+
+    <datalist id="book-genre-list">
+      {existingGenres.map((g) => (
+        <option key={g} value={g} />
+      ))}
+    </datalist>
+  </div>
+)}
 
               <div className="grid grid-cols-2 gap-6">
                 <div className="group relative border-2 border-dashed border-slate-100 rounded-[2rem] p-6 text-center bg-slate-50/30 hover:bg-white hover:border-indigo-200 transition-all cursor-pointer">
@@ -1566,6 +1610,8 @@ const HomePage = ({
     { resourceId: string; reason: string }[]
   >([]);
   const [loadingRecs, setLoadingRecs] = useState(false);
+  const [selectedGenre, setSelectedGenre] = useState("All");
+
 
   // Use Gemini to get smart recommendations based on search query
   useEffect(() => {
@@ -1586,14 +1632,30 @@ const HomePage = ({
     }, 1000);
     return () => clearTimeout(timer);
   }, [query, resources]);
-
-  const filtered = resources.filter((r) => {
-    const matchesSearch =
-      r.title.toLowerCase().includes(query.toLowerCase()) ||
-      r.description.toLowerCase().includes(query.toLowerCase());
-    const matchesCat = selectedCat === "All" || r.category === selectedCat;
-    return matchesSearch && matchesCat;
+const bookGenres = useMemo(() => {
+  const set = new Set<string>();
+  resources.forEach((r) => {
+    if (r.category === "Books" && r.genre) {
+      set.add(r.genre);
+    }
   });
+  return Array.from(set).sort();
+}, [resources]);
+
+const filtered = resources.filter((r) => {
+  const matchesSearch =
+    r.title.toLowerCase().includes(query.toLowerCase()) ||
+    r.description.toLowerCase().includes(query.toLowerCase());
+
+  const matchesCat = selectedCat === "All" || r.category === selectedCat;
+
+  const matchesGenre =
+    selectedCat !== "Books" ||
+    selectedGenre === "All" ||
+    r.genre === selectedGenre;
+
+  return matchesSearch && matchesCat && matchesGenre;
+});
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-12">
@@ -1698,6 +1760,22 @@ const HomePage = ({
           ))}
         </div>
       </div>
+{selectedCat === "Books" && (
+  <div className="mb-10 flex justify-start">
+    <select
+      value={selectedGenre}
+      onChange={(e) => setSelectedGenre(e.target.value)}
+      className="px-6 py-3 rounded-2xl border border-slate-100 bg-white text-xs font-bold shadow-sm"
+    >
+      <option value="All">All Genres</option>
+      {bookGenres.map((g) => (
+        <option key={g} value={g}>
+          {g}
+        </option>
+      ))}
+    </select>
+  </div>
+)}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10">
         {filtered.map((res) => (
