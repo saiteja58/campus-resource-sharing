@@ -4,6 +4,10 @@ import CreateEvent from "./pages/CreateEvent";
 import EventDetails from "./pages/EventDetails";
 
 import React, { useState, useEffect, useMemo, useRef } from "react";
+import { getGeminiChatResponse } from "./services/geminiChat";
+import MyPostsPage from "./MyPostsPage";
+
+
 import {
   HashRouter,
   Routes,
@@ -38,6 +42,146 @@ import {
 import ResourceCard from "./components/ResourceCard";
 
 // Helper to convert file to Base64
+const BADGE_META: Record<
+  string,
+  { title: string; icon: string; bg: string }
+> = {
+  "Community Insider": {
+  title: "Community Insider",
+  icon: "🧠",
+  bg: "bg-purple-100",
+},
+
+  "First Upload": {
+    title: "First Upload",
+    icon: "📚",
+    bg: "bg-indigo-100",
+  },
+  "10 Comments": {
+    title: "10 Comments",
+    icon: "💬",
+    bg: "bg-green-100",
+  },
+  "10 Ratings Given": {
+    title: "10 Ratings Given",
+    icon: "⭐",
+    bg: "bg-yellow-100",
+  },
+  "100 Points Club": {
+    title: "100 Points Club",
+    icon: "🔥",
+    bg: "bg-red-100",
+  },
+};
+
+const calculateTier = (points: number): string => {
+  if (points >= 500) return "Gold I";
+  if (points >= 350) return "Gold II";
+  if (points >= 250) return "Gold III";
+  if (points >= 175) return "Silver I";
+  if (points >= 125) return "Silver II";
+  if (points >= 75) return "Silver III";
+  if (points >= 50) return "Bronze I";
+  if (points >= 25) return "Bronze II";
+  return "Bronze III";
+};
+const awardPoints = async (
+  userId: string,
+  delta: number,
+  statKey?: "uploads" | "comments" | "ratingsGiven" | "ratingsReceived",
+  badgeCheck?: "upload" | "comment" | "rating"
+) => {
+  const userRef = ref(rtdb, `users/${userId}`);
+
+  onValue(
+    userRef,
+    async (snap) => {
+      const data = snap.val();
+      let newlyEarned: string | null = null;
+      if (!data) return;
+
+      const newPoints = (data.points || 0) + delta;
+      const newTier = calculateTier(newPoints);
+
+      const updates: any = {
+        points: newPoints,
+        tier: newTier,
+      };
+
+      if (statKey) {
+        updates[`stats/${statKey}`] = (data.stats?.[statKey] || 0) + 1;
+      }
+
+      // Badge logic
+      const badges = data.badges || {};
+if (badgeCheck === "upload" && !badges["First Upload"]) {
+  badges["First Upload"] = true;
+  newlyEarned = "First Upload";
+}
+if (
+  badgeCheck === "comment" &&
+  (data.stats?.comments || 0) + 1 >= 10 &&
+  !badges["10 Comments"]
+) {
+  badges["10 Comments"] = true;
+  newlyEarned = "10 Comments";
+}
+if (
+  badgeCheck === "rating" &&
+  (data.stats?.ratingsGiven || 0) + 1 >= 10 &&
+  !badges["10 Ratings Given"]
+) {
+  badges["10 Ratings Given"] = true;
+  newlyEarned = "10 Ratings Given";
+}
+
+if (newPoints >= 100 && !badges["100 Points Club"]) {
+  badges["100 Points Club"] = true;
+  newlyEarned = "100 Points Club";
+}
+
+      updates.badges = badges;
+
+      await update(userRef, updates);
+      if (newlyEarned) {
+  setTimeout(() => {
+    window.dispatchEvent(
+      new CustomEvent("badge-earned", { detail: newlyEarned })
+    );
+  }, 100);
+}
+
+
+    },
+    { onlyOnce: true }
+  );
+};
+
+const getTierStyle = (tier?: string) => {
+  switch (tier) {
+    case "Bronze III":
+      return "bg-[#cd7f32] text-white";
+    case "Bronze II":
+      return "bg-[#b87333] text-white";
+    case "Bronze I":
+      return "bg-[#a97142] text-white";
+    case "Silver III":
+      return "bg-slate-300 text-slate-900";
+    case "Silver II":
+      return "bg-slate-200 text-slate-900";
+    case "Silver I":
+      return "bg-slate-100 text-slate-900";
+    case "Gold III":
+      return "bg-yellow-400 text-yellow-900";
+    case "Gold II":
+      return "bg-yellow-300 text-yellow-900";
+    case "Gold I":
+      return "bg-yellow-200 text-yellow-900 shadow-lg";
+    default:
+      return "bg-slate-100 text-slate-500";
+  }
+};
+
 const calculatePopularity = (resource: any): number => {
   const ratings: number[] = resource.ratings
     ? Object.values(resource.ratings).map((r) => Number(r))
@@ -108,6 +252,10 @@ const RatingStars = ({
   );
 };
 
+
+
+
+
 // --- Header Component ---
 const Header = ({
   user,
@@ -169,6 +317,10 @@ const Header = ({
 >
   PostEvents
 </Link>
+        <Link 
+        className="text-sm font-semibold text-slate-500 hover:text-indigo-600 transition-colors"
+        to="/my-posts"
+        >My Posts</Link>
 
       </nav>
 
@@ -354,7 +506,11 @@ const handleSubmit = async (e: React.FormEvent) => {
   viewCount: 0,
 ...(pdf ? { downloadCount: 0 } : {}),
  // 👁️ ADD THIS
-});
+}
+);
+// ✅ AWARD POINTS FOR UPLOAD
+await awardPoints(user.id, 10, "uploads", "upload");
+
 
 
     navigate("/"); // ✅ IMPORTANT
@@ -828,6 +984,24 @@ const ResourceDetailModal = ({
         text: commentText,
         timestamp: Date.now(),
       });
+      await awardPoints(user.id, 1, "comments", "comment");
+      // 🥚 Easter Egg Badge
+if (commentText.toLowerCase().includes("hydrashare")) {
+  const userRef = ref(rtdb, `users/${user.id}`);
+
+  await update(userRef, {
+    [`badges/Community Insider`]: true,
+  });
+
+  setTimeout(() => {
+    window.dispatchEvent(
+      new CustomEvent("badge-earned", {
+        detail: "Community Insider",
+      })
+    );
+  }, 100);
+}
+
       setCommentText("");
     } catch (e) {
       console.error(e);
@@ -868,6 +1042,9 @@ const ResourceDetailModal = ({
         ref(rtdb, `resources/${resource.id}/ratings/${user.id}`),
         score
       );
+      await awardPoints(user.id, 1, "ratingsGiven", "rating");
+await awardPoints(resource.ownerId, 2, "ratingsReceived");
+
     } catch (e) {
       console.error("Failed to add rating", e);
       alert("Rating failed. Please check your connection.");
@@ -1114,11 +1291,20 @@ const AuthPage = ({ onDemoLogin }: { onDemoLogin: (u: User) => void }) => {
           password
         );
         await updateProfile(cred.user, { displayName: name });
-        await set(ref(rtdb, `users/${cred.user.uid}`), {
-          name,
-          email,
-          college,
-        });
+await set(ref(rtdb, `users/${cred.user.uid}`), {
+  name,
+  email,
+  college,
+  points: 0,
+  tier: "Bronze III",
+  badges: {},
+  stats: {
+    uploads: 0,
+    comments: 0,
+    ratingsGiven: 0,
+    ratingsReceived: 0,
+  },
+});
       }
       navigate("/");
     } catch (err: any) {
@@ -1250,13 +1436,63 @@ const ProfilePage = ({
   return (
     <div className="max-w-2xl mx-auto px-4 py-20">
       <div className="bg-white rounded-[3rem] p-12 shadow-2xl shadow-indigo-100/30 border border-slate-100 text-center">
-        <div className="w-24 h-24 bg-indigo-50 rounded-[2rem] flex items-center justify-center text-indigo-600 text-3xl font-black mx-auto mb-6 shadow-inner">
-          {user.name[0]}
-        </div>
+<div className="flex flex-col items-center mb-8">
+  <div
+    className={`w-24 h-24 rounded-[2rem] flex items-center justify-center text-3xl font-black shadow-inner ${
+      getTierStyle(user.tier)
+    }`}
+  >
+    {user.name[0]}
+  </div>
+
+  <div className="mt-4 flex items-center gap-3">
+    <span className="px-4 py-1.5 rounded-full bg-indigo-600 text-white text-[10px] font-black uppercase tracking-widest">
+      {user.points} Points
+    </span>
+
+    <span
+      className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest ${getTierStyle(
+        user.tier
+      )}`}
+    >
+      {user.tier}
+    </span>
+  </div>
+</div>
         <h2 className="text-3xl font-black text-slate-900 mb-2">{user.name}</h2>
         <p className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-10">
           {user.email}
         </p>
+<div className="mt-8">
+  <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">
+    Badges Earned
+  </h4>
+
+  {user.badges && Object.keys(user.badges).length > 0 ? (
+    <div className="flex flex-wrap gap-3 justify-center">
+{Object.keys(user.badges).map((b) => {
+  const meta = BADGE_META[b] || {
+    icon: "🏅",
+    bg: "bg-slate-100",
+  };
+
+  return (
+    <div
+      key={b}
+      className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest ${meta.bg}`}
+    >
+      <span className="text-lg">{meta.icon}</span>
+      <span>{b}</span>
+    </div>
+  );
+})}
+    </div>
+  ) : (
+    <p className="text-[10px] text-slate-300 font-bold uppercase tracking-widest">
+      No badges yet
+    </p>
+  )}
+</div>
 
         <div className="text-left space-y-8 max-w-sm mx-auto">
           <div>
@@ -1290,6 +1526,24 @@ const ProfilePage = ({
 
 // --- App Main ---
 const App: React.FC = () => {
+  const [earnedBadge, setEarnedBadge] = useState<string | null>(null);
+
+  useEffect(() => {
+const handler = (e: any) => {
+  console.log("BADGE EVENT RECEIVED:", e.detail);
+  setEarnedBadge(e.detail);
+
+  // 👇 FORCE USER STATE REFRESH
+  setCurrentUser((prev) => (prev ? { ...prev } : prev));
+};
+
+    window.addEventListener("badge-earned", handler);
+
+    return () => {
+      window.removeEventListener("badge-earned", handler);
+    };
+  }, []);
+
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
     const saved = sessionStorage.getItem("hydrashare_user");
     return saved ? JSON.parse(saved) : null;
@@ -1302,18 +1556,51 @@ const App: React.FC = () => {
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
   const [reqMsg, setReqMsg] = useState("");
   const [loading, setLoading] = useState(true);
+const platformStats = useMemo(() => {
+  const totalResources = resources.length;
+
+  const totalDownloads = resources.reduce(
+    (sum, r) => sum + (r.downloadCount || 0),
+    0
+  );
+
+  const totalViews = resources.reduce(
+    (sum, r) => sum + (r.viewCount || 0),
+    0
+  );
+
+  return {
+    totalResources,
+    totalDownloads,
+    totalViews,
+  };
+}, [resources]);
+
+
+
 
   useEffect(() => {
     const unsubAuth = onAuthStateChanged(auth, (fbUser) => {
       if (fbUser) {
         onValue(ref(rtdb, `users/${fbUser.uid}`), (snap) => {
           const d = snap.val();
-          const userData: User = {
-            id: fbUser.uid,
-            name: fbUser.displayName || d?.name || "Student",
-            email: fbUser.email || "",
-            college: d?.college || HYDERABAD_COLLEGES[0],
-          };
+const userData: User = {
+  id: fbUser.uid,
+  name: fbUser.displayName || d?.name || "Student",
+  email: fbUser.email || "",
+  college: d?.college || HYDERABAD_COLLEGES[0],
+
+  points: d?.points ?? 0,
+  tier: d?.tier ?? "Bronze III",
+
+  badges: d?.badges ?? {},
+  stats: d?.stats ?? {
+    uploads: 0,
+    comments: 0,
+    ratingsGiven: 0,
+    ratingsReceived: 0,
+  },
+};
           setCurrentUser(userData);
           sessionStorage.setItem("hydrashare_user", JSON.stringify(userData));
         });
@@ -1415,6 +1702,17 @@ const App: React.FC = () => {
                 />
               }
             />
+<Route
+  path="/"
+  element={
+    <HomePage
+      resources={resources}
+      stats={platformStats}
+      onSelectDetail={setSelectedDetailId}
+      onRequest={setShowRequestModal}
+    />
+  }
+/>
             <Route
               path="/auth"
               element={<AuthPage onDemoLogin={setCurrentUser} />}
@@ -1429,6 +1727,20 @@ const App: React.FC = () => {
                 )
               }
             />
+            <Route
+  path="/my-posts"
+  element={
+    currentUser ? (
+      <MyPostsPage
+        user={currentUser}
+        resources={resources}
+      />
+    ) : (
+      <Navigate to="/auth" />
+    )
+  }
+/>
+
             <Route
               path="/profile"
               element={
@@ -1713,6 +2025,14 @@ const App: React.FC = () => {
           </div>
         )}
       </div>    
+        {earnedBadge && (
+  <BadgeCongratsModal
+    badge={earnedBadge}
+    onClose={() => setEarnedBadge(null)}
+  />
+)}
+
+      </div>
     </HashRouter>
   </EventProvider>
 );
@@ -1721,10 +2041,16 @@ const App: React.FC = () => {
 // --- HomePage Component ---
 const HomePage = ({
   resources,
+  stats,
   onRequest,
   onSelectDetail,
 }: {
   resources: Resource[];
+  stats: {
+    totalResources: number;
+    totalDownloads: number;
+    totalViews: number;
+  };
   onRequest: (id: string) => void;
   onSelectDetail: (id: string) => void;
 }) => {
@@ -1735,9 +2061,40 @@ const HomePage = ({
   >([]);
   const [loadingRecs, setLoadingRecs] = useState(false);
   const [selectedGenre, setSelectedGenre] = useState("All");
+// <<<<<<< HEAD
 type SortOption = "newest" | "rating" | "comments" | "popularity";
 
 const [sortBy, setSortBy] = useState<SortOption>("newest");
+// =======
+  const [aiInput, setAiInput] = useState("");
+const [aiReply, setAiReply] = useState<string | null>(null);
+const [aiMatches, setAiMatches] = useState<any[]>([]);
+const [aiLoading, setAiLoading] = useState(false);
+const handleAiSearch = async () => {
+  if (!aiInput.trim()) return;
+
+  setAiLoading(true);
+
+  try {
+    const res = await getGeminiChatResponse(aiInput, resources);
+
+    if (!res) {
+      setAiReply("Something went wrong. Try again.");
+      setAiMatches([]);
+      return;
+    }
+
+    setAiReply(res.reply ?? "Here are some results:");
+    setAiMatches(res.matches ?? []);
+  } catch (e) {
+    console.error(e);
+    setAiReply("Failed to fetch suggestions.");
+    setAiMatches([]);
+  } finally {
+    setAiLoading(false);
+  }
+};
+// >>>>>>> dc3fe79 (Added gemini ai for smart searches)
 
 
 
@@ -1925,6 +2282,86 @@ if (sortBy === "popularity") {
           />
         </div>
       </section>
+{/* 📊 Platform Stats Bar */}
+<div className="mb-12 grid grid-cols-1 sm:grid-cols-3 gap-6">
+  <div className="bg-white rounded-2xl p-6 text-center shadow-sm border">
+    <p className="text-3xl font-black text-indigo-600">
+      {stats.totalResources}
+    </p>
+    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+      Resources Shared
+    </p>
+  </div>
+
+  <div className="bg-white rounded-2xl p-6 text-center shadow-sm border">
+    <p className="text-3xl font-black text-green-600">
+      {stats.totalDownloads}
+    </p>
+    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+      Downloads
+    </p>
+  </div>
+
+  <div className="bg-white rounded-2xl p-6 text-center shadow-sm border">
+    <p className="text-3xl font-black text-amber-600">
+      {stats.totalViews}
+    </p>
+    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+      Views
+    </p>
+  </div>
+</div>
+
+        
+
+      <div className="bg-white rounded-3xl p-8 border border-slate-100 shadow-xl mb-12">
+  <h3 className="text-xl font-black text-slate-900 mb-4">
+    🤖 Ask Hydra AI
+  </h3>
+
+  <div className="flex gap-3">
+    <input
+      value={aiInput}
+      onChange={(e) => setAiInput(e.target.value)}
+      placeholder="Ask for notes, kits, subjects..."
+      className="flex-1 px-6 py-4 rounded-2xl border border-slate-200 font-bold"
+    />
+    <button
+      onClick={handleAiSearch}
+      disabled={aiLoading}
+      className="px-6 py-4 bg-indigo-600 text-white rounded-2xl font-black"
+    >
+      {aiLoading ? "Thinking..." : "Ask"}
+    </button>
+  </div>
+
+  {aiReply && (
+    <p className="mt-4 text-sm text-slate-600 font-medium">
+      🤖 {aiReply}
+    </p>
+  )}
+
+  {aiMatches.length > 0 && (
+    <div className="mt-6 space-y-3">
+      {aiMatches.map((m) => {
+        const res = resources.find(r => r.id === m.resourceId);
+        if (!res) return null;
+
+        return (
+          <div
+            key={m.resourceId}
+            onClick={() => onSelectDetail(res.id)}
+            className="p-4 rounded-xl border border-indigo-100 bg-indigo-50 cursor-pointer hover:bg-white transition"
+          >
+            <p className="font-bold text-slate-900">{res.title}</p>
+            <p className="text-xs text-indigo-500 mt-1">{m.reason}</p>
+          </div>
+        );
+      })}
+    </div>
+  )}
+</div>
+
 
       <div className="mb-12">
         <div className="flex overflow-x-auto pb-4 gap-3 no-scrollbar">
@@ -2022,5 +2459,93 @@ if (sortBy === "popularity") {
     </div>
   );
 };
+const BadgeCongratsModal = ({
+  badge,
+  onClose,
+}: {
+  badge: string;
+  onClose: () => void;
+}) => {
+const meta =
+  BADGE_META[badge] || {
+    title: badge,
+    icon: "🏅",
+    bg: "bg-slate-100",
+  };
+
+  return (
+    <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/70 backdrop-blur-md">
+      <ConfettiRain />
+      <div className="relative bg-white rounded-[3rem] p-16 text-center shadow-2xl">
+        <h2 className="text-4xl font-black text-slate-900 mb-4">
+          🎉 Congratulations!
+        </h2>
+
+        <div
+          className={`w-32 h-32 mx-auto mb-6 rounded-full flex items-center justify-center text-6xl ${meta.bg}`}
+        >
+          {meta.icon}
+        </div>
+
+        <p className="text-xl font-black text-indigo-600 mb-8">
+          {meta.title} Badge Earned
+        </p>
+
+        <button
+          onClick={onClose}
+          className="px-10 py-4 bg-indigo-600 text-white rounded-2xl font-black uppercase tracking-widest"
+        >
+          Close
+        </button>
+      </div>
+    </div>
+  );
+};
+const ConfettiRain = () => {
+  const emojis = ["🎉", "🎊", "✨", "📚", "⭐", "🔥"];
+
+  return (
+    <>
+      <style>
+        {`
+          @keyframes confetti-fall {
+            0% {
+              transform: translateY(-20px);
+              opacity: 1;
+            }
+            100% {
+              transform: translateY(100vh);
+              opacity: 0;
+            }
+          }
+        `}
+      </style>
+
+      <div className="pointer-events-none fixed inset-0 z-[998] overflow-hidden">
+        {Array.from({ length: 40 }).map((_, i) => {
+          const left = Math.random() * 100;
+          const delay = Math.random() * 1;
+          const duration = 2 + Math.random() * 2;
+
+          return (
+            <span
+              key={i}
+              style={{
+                position: "absolute",
+                top: "-30px",
+                left: `${left}%`,
+                fontSize: "28px",
+                animation: `confetti-fall ${duration}s linear ${delay}s infinite`,
+              }}
+            >
+              {emojis[i % emojis.length]}
+            </span>
+          );
+        })}
+      </div>
+    </>
+  );
+};
+
 
 export default App;

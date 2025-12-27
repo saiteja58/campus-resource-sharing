@@ -8,10 +8,22 @@ export type Category =
 export interface User {
   id: string;
   name: string;
-  college: string;
   email: string;
-  password?: string;
+  college: string;
+
+  points?: number;
+  tier?: string;
+
+  badges?: Record<string, boolean>;
+
+  stats?: {
+    uploads?: number;
+    comments?: number;
+    ratingsGiven?: number;
+    ratingsReceived?: number;
+  };
 }
+
 
 export interface Comment {
   id: string;
@@ -43,6 +55,7 @@ export interface Resource {
   college: string;
   status: "available" | "borrowed";
 
+  status: 'available' | 'borrowed';
   genre?: string;
   createdAt: number;
 
