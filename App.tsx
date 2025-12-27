@@ -39,6 +39,12 @@ const BADGE_META: Record<
   string,
   { title: string; icon: string; bg: string }
 > = {
+  "Community Insider": {
+  title: "Community Insider",
+  icon: "🧠",
+  bg: "bg-purple-100",
+},
+
   "First Upload": {
     title: "First Upload",
     icon: "📚",
@@ -961,6 +967,23 @@ const ResourceDetailModal = ({
         timestamp: Date.now(),
       });
       await awardPoints(user.id, 1, "comments", "comment");
+      // 🥚 Easter Egg Badge
+if (commentText.toLowerCase().includes("hydrashare")) {
+  const userRef = ref(rtdb, `users/${user.id}`);
+
+  await update(userRef, {
+    [`badges/Community Insider`]: true,
+  });
+
+  setTimeout(() => {
+    window.dispatchEvent(
+      new CustomEvent("badge-earned", {
+        detail: "Community Insider",
+      })
+    );
+  }, 100);
+}
+
       setCommentText("");
     } catch (e) {
       console.error(e);
@@ -1515,7 +1538,25 @@ const handler = (e: any) => {
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
   const [reqMsg, setReqMsg] = useState("");
   const [loading, setLoading] = useState(true);
+const platformStats = useMemo(() => {
+  const totalResources = resources.length;
 
+  const totalDownloads = resources.reduce(
+    (sum, r) => sum + (r.downloadCount || 0),
+    0
+  );
+
+  const totalViews = resources.reduce(
+    (sum, r) => sum + (r.viewCount || 0),
+    0
+  );
+
+  return {
+    totalResources,
+    totalDownloads,
+    totalViews,
+  };
+}, [resources]);
 
 
 
@@ -1621,16 +1662,17 @@ const userData: User = {
         <Header user={currentUser} onLogout={handleLogout} />
         <main className="flex-grow">
           <Routes>
-            <Route
-              path="/"
-              element={
-                <HomePage
-                  resources={resources}
-                  onSelectDetail={setSelectedDetailId}
-                  onRequest={setShowRequestModal}
-                />
-              }
-            />
+<Route
+  path="/"
+  element={
+    <HomePage
+      resources={resources}
+      stats={platformStats}
+      onSelectDetail={setSelectedDetailId}
+      onRequest={setShowRequestModal}
+    />
+  }
+/>
             <Route
               path="/auth"
               element={<AuthPage onDemoLogin={setCurrentUser} />}
@@ -1943,14 +1985,19 @@ const userData: User = {
 // --- HomePage Component ---
 const HomePage = ({
   resources,
+  stats,
   onRequest,
   onSelectDetail,
 }: {
   resources: Resource[];
+  stats: {
+    totalResources: number;
+    totalDownloads: number;
+    totalViews: number;
+  };
   onRequest: (id: string) => void;
   onSelectDetail: (id: string) => void;
 }) => {
-  
   const [query, setQuery] = useState("");
   const [selectedCat, setSelectedCat] = useState<string>("All");
   const [recommendations, setRecommendations] = useState<
@@ -2190,6 +2237,35 @@ if (sortBy === "popularity") {
           />
         </div>
       </section>
+{/* 📊 Platform Stats Bar */}
+<div className="mb-12 grid grid-cols-1 sm:grid-cols-3 gap-6">
+  <div className="bg-white rounded-2xl p-6 text-center shadow-sm border">
+    <p className="text-3xl font-black text-indigo-600">
+      {stats.totalResources}
+    </p>
+    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+      Resources Shared
+    </p>
+  </div>
+
+  <div className="bg-white rounded-2xl p-6 text-center shadow-sm border">
+    <p className="text-3xl font-black text-green-600">
+      {stats.totalDownloads}
+    </p>
+    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+      Downloads
+    </p>
+  </div>
+
+  <div className="bg-white rounded-2xl p-6 text-center shadow-sm border">
+    <p className="text-3xl font-black text-amber-600">
+      {stats.totalViews}
+    </p>
+    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+      Views
+    </p>
+  </div>
+</div>
 
         
 
