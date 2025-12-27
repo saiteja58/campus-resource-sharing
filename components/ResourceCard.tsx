@@ -78,7 +78,10 @@ const ResourceCard: React.FC<ResourceCardProps> = ({ resource, onAction, onClick
       <div className="p-6 flex-grow flex flex-col">
         <div className="mb-4">
           <h3 className="text-xl font-black text-slate-900 line-clamp-1 mb-1 group-hover:text-indigo-600 transition-colors">{resource.title}</h3>
-          <p className="text-sm text-slate-500 font-bold line-clamp-2 leading-relaxed">{resource.description}</p>
+          <p className="text-[9px] font-bold text-slate-400 mt-1">
+  {resource.downloadCount || 0} downloads
+</p>
+
         </div>
         
         <div className="flex items-center justify-between mt-auto pt-4 border-t border-slate-50">
