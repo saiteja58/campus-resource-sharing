@@ -33,6 +33,23 @@ import {
 import ResourceCard from "./components/ResourceCard";
 
 // Helper to convert file to Base64
+const calculatePopularity = (resource: any): number => {
+  const ratings: number[] = resource.ratings
+    ? Object.values(resource.ratings).map((r) => Number(r))
+    : [];
+
+  const avgRating =
+    ratings.length > 0
+      ? ratings.reduce((sum, r) => sum + r, 0) / ratings.length
+      : 0;
+
+  const commentsCount = resource.comments
+    ? Object.keys(resource.comments).length
+    : 0;
+
+  return ratings.length * 5 + avgRating * 10 + commentsCount * 2;
+};
+
 const fileToBase64 = (file: File): Promise<string> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -1611,6 +1628,10 @@ const HomePage = ({
   >([]);
   const [loadingRecs, setLoadingRecs] = useState(false);
   const [selectedGenre, setSelectedGenre] = useState("All");
+type SortOption = "newest" | "rating" | "comments" | "popularity";
+
+const [sortBy, setSortBy] = useState<SortOption>("newest");
+
 
 
   // Use Gemini to get smart recommendations based on search query
@@ -1656,6 +1677,82 @@ const filtered = resources.filter((r) => {
 
   return matchesSearch && matchesCat && matchesGenre;
 });
+<div className="mb-10 flex justify-end">
+  <select
+    value={sortBy}
+    onChange={(e) => setSortBy(e.target.value as SortOption)}
+    className="px-6 py-3 rounded-2xl border border-slate-100 bg-white text-xs font-bold shadow-sm"
+  >
+    <option value="newest">Newest First</option>
+    <option value="rating">Highest Rated</option>
+    <option value="comments">Most Commented</option>
+    <option value="popularity">Most Popular</option>
+  </select>
+</div>
+
+const sortedResources = useMemo(() => {
+  const arr = [...filtered];
+if (sortBy === "popularity") {
+  return arr.sort((a, b) => {
+    const aRatings = a.ratings
+      ? Object.values(a.ratings).map((r) => Number(r))
+      : [];
+    const bRatings = b.ratings
+      ? Object.values(b.ratings).map((r) => Number(r))
+      : [];
+
+    const aAvg =
+      aRatings.length > 0
+        ? aRatings.reduce((s, r) => s + r, 0) / aRatings.length
+        : 0;
+    const bAvg =
+      bRatings.length > 0
+        ? bRatings.reduce((s, r) => s + r, 0) / bRatings.length
+        : 0;
+
+    const aComments = a.comments ? Object.keys(a.comments).length : 0;
+    const bComments = b.comments ? Object.keys(b.comments).length : 0;
+
+    const aScore = aRatings.length * 5 + aAvg * 10 + aComments * 2;
+    const bScore = bRatings.length * 5 + bAvg * 10 + bComments * 2;
+
+    return bScore - aScore;
+  });
+}
+
+  if (sortBy === "rating") {
+    return arr.sort((a, b) => {
+      const aRatings = a.ratings
+        ? Object.values(a.ratings).map((r) => Number(r))
+        : [];
+      const bRatings = b.ratings
+        ? Object.values(b.ratings).map((r) => Number(r))
+        : [];
+
+      const aAvg =
+        aRatings.length > 0
+          ? aRatings.reduce((s, r) => s + r, 0) / aRatings.length
+          : 0;
+      const bAvg =
+        bRatings.length > 0
+          ? bRatings.reduce((s, r) => s + r, 0) / bRatings.length
+          : 0;
+
+      return bAvg - aAvg;
+    });
+  }
+
+  if (sortBy === "comments") {
+    return arr.sort((a, b) => {
+      const aCount = a.comments ? Object.keys(a.comments).length : 0;
+      const bCount = b.comments ? Object.keys(b.comments).length : 0;
+      return bCount - aCount;
+    });
+  }
+
+  // newest (default)
+  return arr.sort((a, b) => b.createdAt - a.createdAt);
+}, [filtered, sortBy]);
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-12">
@@ -1776,9 +1873,22 @@ const filtered = resources.filter((r) => {
     </select>
   </div>
 )}
+{/* Sorting Dropdown */}
+<div className="mb-10 flex justify-end">
+  <select
+    value={sortBy}
+    onChange={(e) => setSortBy(e.target.value as SortOption)}
+    className="px-6 py-3 rounded-2xl border border-slate-100 bg-white text-xs font-bold shadow-sm"
+  >
+    <option value="newest">Newest First</option>
+    <option value="rating">Highest Rated</option>
+    <option value="comments">Most Commented</option>
+    <option value="popularity">Most Popular</option>
+  </select>
+</div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10">
-        {filtered.map((res) => (
+        {sortedResources.map((res) => (
           <ResourceCard
             key={res.id}
             resource={res}
