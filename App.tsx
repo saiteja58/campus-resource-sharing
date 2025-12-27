@@ -1958,11 +1958,11 @@ const HomePage = ({
   >([]);
   const [loadingRecs, setLoadingRecs] = useState(false);
   const [selectedGenre, setSelectedGenre] = useState("All");
-<<<<<<< HEAD
+// <<<<<<< HEAD
 type SortOption = "newest" | "rating" | "comments" | "popularity";
 
 const [sortBy, setSortBy] = useState<SortOption>("newest");
-=======
+// =======
   const [aiInput, setAiInput] = useState("");
 const [aiReply, setAiReply] = useState<string | null>(null);
 const [aiMatches, setAiMatches] = useState<any[]>([]);
@@ -1991,7 +1991,7 @@ const handleAiSearch = async () => {
     setAiLoading(false);
   }
 };
->>>>>>> dc3fe79 (Added gemini ai for smart searches)
+// >>>>>>> dc3fe79 (Added gemini ai for smart searches)
 
 
 
