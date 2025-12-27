@@ -131,10 +131,13 @@ if (newPoints >= 100 && !badges["100 Points Club"]) {
 
       await update(userRef, updates);
       if (newlyEarned) {
-  window.dispatchEvent(
-    new CustomEvent("badge-earned", { detail: newlyEarned })
-  );
+  setTimeout(() => {
+    window.dispatchEvent(
+      new CustomEvent("badge-earned", { detail: newlyEarned })
+    );
+  }, 100);
 }
+
 
     },
     { onlyOnce: true }
@@ -479,7 +482,11 @@ const handleSubmit = async (e: React.FormEvent) => {
   viewCount: 0,
 ...(pdf ? { downloadCount: 0 } : {}),
  // 👁️ ADD THIS
-});
+}
+);
+// ✅ AWARD POINTS FOR UPLOAD
+await awardPoints(user.id, 10, "uploads", "upload");
+
 
 
     navigate("/"); // ✅ IMPORTANT
@@ -1422,14 +1429,22 @@ const ProfilePage = ({
 
   {user.badges && Object.keys(user.badges).length > 0 ? (
     <div className="flex flex-wrap gap-3 justify-center">
-      {Object.keys(user.badges).map((b) => (
-        <span
-          key={b}
-          className="px-4 py-2 rounded-xl bg-slate-100 text-[10px] font-black uppercase tracking-widest"
-        >
-          🏅 {b}
-        </span>
-      ))}
+{Object.keys(user.badges).map((b) => {
+  const meta = BADGE_META[b] || {
+    icon: "🏅",
+    bg: "bg-slate-100",
+  };
+
+  return (
+    <div
+      key={b}
+      className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest ${meta.bg}`}
+    >
+      <span className="text-lg">{meta.icon}</span>
+      <span>{b}</span>
+    </div>
+  );
+})}
     </div>
   ) : (
     <p className="text-[10px] text-slate-300 font-bold uppercase tracking-widest">
@@ -1470,20 +1485,24 @@ const ProfilePage = ({
 
 // --- App Main ---
 const App: React.FC = () => {
-  useEffect(() => {
-  const handler = (e: any) => {
-    console.log("BADGE EVENT RECEIVED:", e.detail);
-    setEarnedBadge(e.detail);
-  };
-
-  window.addEventListener("badge-earned", handler);
-
-  return () => {
-    window.removeEventListener("badge-earned", handler);
-  };
-}, []);
-
   const [earnedBadge, setEarnedBadge] = useState<string | null>(null);
+
+  useEffect(() => {
+const handler = (e: any) => {
+  console.log("BADGE EVENT RECEIVED:", e.detail);
+  setEarnedBadge(e.detail);
+
+  // 👇 FORCE USER STATE REFRESH
+  setCurrentUser((prev) => (prev ? { ...prev } : prev));
+};
+
+    window.addEventListener("badge-earned", handler);
+
+    return () => {
+      window.removeEventListener("badge-earned", handler);
+    };
+  }, []);
+
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
     const saved = sessionStorage.getItem("hydrashare_user");
     return saved ? JSON.parse(saved) : null;
@@ -1511,9 +1530,17 @@ const userData: User = {
   name: fbUser.displayName || d?.name || "Student",
   email: fbUser.email || "",
   college: d?.college || HYDERABAD_COLLEGES[0],
-  points: d?.points || 0,
-  tier: d?.tier || "Bronze III",
-  badges: d?.badges || {},
+
+  points: d?.points ?? 0,
+  tier: d?.tier ?? "Bronze III",
+
+  badges: d?.badges ?? {},
+  stats: d?.stats ?? {
+    uploads: 0,
+    comments: 0,
+    ratingsGiven: 0,
+    ratingsReceived: 0,
+  },
 };
           setCurrentUser(userData);
           sessionStorage.setItem("hydrashare_user", JSON.stringify(userData));
@@ -2316,7 +2343,12 @@ const BadgeCongratsModal = ({
   badge: string;
   onClose: () => void;
 }) => {
-  const meta = BADGE_META[badge];
+const meta =
+  BADGE_META[badge] || {
+    title: badge,
+    icon: "🏅",
+    bg: "bg-slate-100",
+  };
 
   return (
     <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/70 backdrop-blur-md">
