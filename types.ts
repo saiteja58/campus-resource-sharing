@@ -1,5 +1,9 @@
-
-export type Category = 'Books' | 'Notes' | 'Lab Equipment' | 'Electronics' | 'Others';
+export type Category =
+  | "Books"
+  | "Notes"
+  | "Lab Equipment"
+  | "Electronics"
+  | "Others";
 
 export interface User {
   id: string;
@@ -42,11 +46,15 @@ export interface Resource {
   title: string;
   description: string;
   category: Category;
-  imageUrl: string;
-  documentUrl?: string;
+
+  imageUrl: string;          // ✅ keep ONE
+  documentUrl?: string;      // ✅ keep ONE
+
   ownerId: string;
   ownerName: string;
   college: string;
+  status: "available" | "borrowed";
+
   status: 'available' | 'borrowed';
   genre?: string;
   createdAt: number;
@@ -54,18 +62,16 @@ export interface Resource {
   comments?: Record<string, Comment>;
   ratings?: Record<string, number>;
 
-    viewCount?: number;       // 👁️ views
-  downloadCount?: number;   // ⬇️ downloads (PDF only)
-
+  viewCount?: number;        // 👁️ views
+  downloadCount?: number;    // ⬇️ downloads (PDF only)
 }
-
 
 export interface ShareRequest {
   id: string;
   resourceId: string;
   requesterId: string;
   requesterName: string;
-  status: 'pending' | 'accepted' | 'rejected';
+  status: "pending" | "accepted" | "rejected";
   message: string;
   timestamp: number;
   messages?: Record<string, ChatMessage>;
@@ -75,3 +81,15 @@ export interface Recommendation {
   resourceId: string;
   reason: string;
 }
+
+export interface Event {
+  id: number;
+  name: string;
+  venue: string;
+  description: string;
+  image: string;
+  registrationLink: string;
+  eventDate: string; // ✅ NEW (ISO date string)
+}
+
+

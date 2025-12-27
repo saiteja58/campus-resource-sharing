@@ -1,3 +1,8 @@
+import { EventProvider } from "./context/EventContext";
+import Events from "./pages/Events";
+import CreateEvent from "./pages/CreateEvent";
+import EventDetails from "./pages/EventDetails";
+
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { getGeminiChatResponse } from "./services/geminiChat";
 import MyPostsPage from "./MyPostsPage";
@@ -306,6 +311,12 @@ const Header = ({
         >
           Dashboard
         </Link>
+        <Link
+  to="/events"
+  className="text-sm font-semibold text-slate-500 hover:text-indigo-600 transition-colors"
+>
+  PostEvents
+</Link>
         <Link 
         className="text-sm font-semibold text-slate-500 hover:text-indigo-600 transition-colors"
         to="/my-posts"
@@ -1663,12 +1674,34 @@ const userData: User = {
       </div>
     );
 
-  return (
+    return (
+  <EventProvider>
     <HashRouter>
       <div className="min-h-screen flex flex-col bg-[#fafafa]">
         <Header user={currentUser} onLogout={handleLogout} />
         <main className="flex-grow">
           <Routes>
+            <Route path="/events" element={<Events />} />
+
+          <Route
+            path="/events/create"
+            element={
+            currentUser ? <CreateEvent /> : <Navigate to="/auth" />
+            }
+            />
+
+          <Route path="/events/:id" element={<EventDetails />} />
+
+            <Route
+              path="/"
+              element={
+                <HomePage
+                  resources={resources}
+                  onSelectDetail={setSelectedDetailId}
+                  onRequest={setShowRequestModal}
+                />
+              }
+            />
 <Route
   path="/"
   element={
@@ -1991,6 +2024,7 @@ const userData: User = {
             </div>
           </div>
         )}
+      </div>    
         {earnedBadge && (
   <BadgeCongratsModal
     badge={earnedBadge}
@@ -2000,7 +2034,8 @@ const userData: User = {
 
       </div>
     </HashRouter>
-  );
+  </EventProvider>
+);
 };
 
 // --- HomePage Component ---
@@ -2106,18 +2141,7 @@ const filtered = resources.filter((r) => {
 
   return matchesSearch && matchesCat && matchesGenre;
 });
-<div className="mb-10 flex justify-end">
-  <select
-    value={sortBy}
-    onChange={(e) => setSortBy(e.target.value as SortOption)}
-    className="px-6 py-3 rounded-2xl border border-slate-100 bg-white text-xs font-bold shadow-sm"
-  >
-    <option value="newest">Newest First</option>
-    <option value="rating">Highest Rated</option>
-    <option value="comments">Most Commented</option>
-    <option value="popularity">Most Popular</option>
-  </select>
-</div>
+
 
 const sortedResources = useMemo(() => {
   const arr = [...filtered];
@@ -2383,6 +2407,7 @@ if (sortBy === "popularity") {
   </div>
 )}
 {/* Sorting Dropdown */}
+{/* Sorting Dropdown */}
 <div className="mb-10 flex justify-end">
   <select
     value={sortBy}
@@ -2395,6 +2420,7 @@ if (sortBy === "popularity") {
     <option value="popularity">Most Popular</option>
   </select>
 </div>
+
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10">
         {sortedResources.map((res) => (
