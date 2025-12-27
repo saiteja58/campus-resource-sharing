@@ -35,7 +35,10 @@ export interface Resource {
   ownerId: string;
   ownerName: string;
   college: string;
-  status: string;
+  status: 'available' | 'borrowed';
+  imageUrl: string;
+  documentUrl?: string;
+  genre?: string;
   createdAt: number;
 
   comments?: Record<string, Comment>;

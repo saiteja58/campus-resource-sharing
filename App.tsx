@@ -33,6 +33,23 @@ import {
 import ResourceCard from "./components/ResourceCard";
 
 // Helper to convert file to Base64
+const calculatePopularity = (resource: any): number => {
+  const ratings: number[] = resource.ratings
+    ? Object.values(resource.ratings).map((r) => Number(r))
+    : [];
+
+  const avgRating =
+    ratings.length > 0
+      ? ratings.reduce((sum, r) => sum + r, 0) / ratings.length
+      : 0;
+
+  const commentsCount = resource.comments
+    ? Object.keys(resource.comments).length
+    : 0;
+
+  return ratings.length * 5 + avgRating * 10 + commentsCount * 2;
+};
+
 const fileToBase64 = (file: File): Promise<string> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -234,16 +251,19 @@ const Footer = () => (
 // --- Post Resource Page ---
 const PostResourcePage = ({ user }: { user: User }) => {
   const navigate = useNavigate();
-  const [formData, setFormData] = useState({
-    title: "",
-    description: "",
-    category: "Books" as Category,
-  });
+const [formData, setFormData] = useState({
+  title: "",
+  description: "",
+  category: "Books" as Category,
+  genre: "",
+});
   const [img, setImg] = useState<File | null>(null);
   const [pdf, setPdf] = useState<File | null>(null);
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
   const [isPosting, setIsPosting] = useState(false);
   const [isSuggesting, setIsSuggesting] = useState(false);
+  const [existingGenres, setExistingGenres] = useState<string[]>([]);
+
 
   useEffect(() => {
     if (pdf) {
@@ -254,6 +274,23 @@ const PostResourcePage = ({ user }: { user: User }) => {
       setPdfPreviewUrl(null);
     }
   }, [pdf]);
+
+  useEffect(() => {
+  onValue(ref(rtdb, "resources"), (snap) => {
+    const data = snap.val();
+    if (!data) return;
+
+    const genres = new Set<string>();
+    Object.values(data).forEach((r: any) => {
+      if (r.category === "Books" && r.genre) {
+        genres.add(r.genre);
+      }
+    });
+
+    setExistingGenres(Array.from(genres).sort());
+  });
+}, []);
+
 
   const handleAutoCategorize = async () => {
     if (!formData.title || !formData.description) return;
@@ -410,6 +447,30 @@ const handleSubmit = async (e: React.FormEvent) => {
                   ))}
                 </select>
               </div>
+              {formData.category === "Books" && (
+  <div>
+    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block ml-1">
+      Book Genre
+    </label>
+
+    <input
+      list="book-genre-list"
+      placeholder="e.g. Engineering Mathematics"
+      className="w-full px-5 py-4 rounded-2xl bg-slate-50 border border-slate-100 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none text-slate-900 text-sm font-bold"
+      value={formData.genre}
+      onChange={(e) =>
+        setFormData({ ...formData, genre: e.target.value })
+      }
+      required
+    />
+
+    <datalist id="book-genre-list">
+      {existingGenres.map((g) => (
+        <option key={g} value={g} />
+      ))}
+    </datalist>
+  </div>
+)}
 
               <div className="grid grid-cols-2 gap-6">
                 <div className="group relative border-2 border-dashed border-slate-100 rounded-[2rem] p-6 text-center bg-slate-50/30 hover:bg-white hover:border-indigo-200 transition-all cursor-pointer">
@@ -1276,18 +1337,32 @@ const App: React.FC = () => {
   };
 
   const handleSendReq = async () => {
-    if (!showRequestModal || !currentUser) return;
-    await set(push(ref(rtdb, "requests")), {
-      resourceId: showRequestModal,
-      requesterId: currentUser.id,
-      requesterName: currentUser.name,
-      status: "pending",
-      message: reqMsg,
-      timestamp: Date.now(),
-    });
-    setShowRequestModal(null);
-    setReqMsg("");
-  };
+  if (!showRequestModal || !currentUser || !reqMsg.trim()) return;
+
+  const requestRef = push(ref(rtdb, "requests"));
+
+  const messageRef = push(ref(rtdb, `requests/${requestRef.key}/messages`));
+
+  await set(requestRef, {
+    resourceId: showRequestModal,
+    requesterId: currentUser.id,
+    requesterName: currentUser.name,
+    status: "pending",
+    timestamp: Date.now(),
+  });
+
+  await set(messageRef, {
+    id: messageRef.key,
+    senderId: currentUser.id,
+    senderName: currentUser.name,
+    text: reqMsg,
+    timestamp: Date.now(),
+  });
+
+  setShowRequestModal(null);
+  setReqMsg("");
+};
+
 
   const handleAcceptRequest = async (reqId: string) => {
     await update(ref(rtdb, `requests/${reqId}`), { status: "accepted" });
@@ -1634,6 +1709,12 @@ const HomePage = ({
     { resourceId: string; reason: string }[]
   >([]);
   const [loadingRecs, setLoadingRecs] = useState(false);
+  const [selectedGenre, setSelectedGenre] = useState("All");
+type SortOption = "newest" | "rating" | "comments" | "popularity";
+
+const [sortBy, setSortBy] = useState<SortOption>("newest");
+
+
 
   // Use Gemini to get smart recommendations based on search query
   useEffect(() => {
@@ -1654,14 +1735,106 @@ const HomePage = ({
     }, 1000);
     return () => clearTimeout(timer);
   }, [query, resources]);
-
-  const filtered = resources.filter((r) => {
-    const matchesSearch =
-      r.title.toLowerCase().includes(query.toLowerCase()) ||
-      r.description.toLowerCase().includes(query.toLowerCase());
-    const matchesCat = selectedCat === "All" || r.category === selectedCat;
-    return matchesSearch && matchesCat;
+const bookGenres = useMemo(() => {
+  const set = new Set<string>();
+  resources.forEach((r) => {
+    if (r.category === "Books" && r.genre) {
+      set.add(r.genre);
+    }
   });
+  return Array.from(set).sort();
+}, [resources]);
+
+const filtered = resources.filter((r) => {
+  const matchesSearch =
+    r.title.toLowerCase().includes(query.toLowerCase()) ||
+    r.description.toLowerCase().includes(query.toLowerCase());
+
+  const matchesCat = selectedCat === "All" || r.category === selectedCat;
+
+  const matchesGenre =
+    selectedCat !== "Books" ||
+    selectedGenre === "All" ||
+    r.genre === selectedGenre;
+
+  return matchesSearch && matchesCat && matchesGenre;
+});
+<div className="mb-10 flex justify-end">
+  <select
+    value={sortBy}
+    onChange={(e) => setSortBy(e.target.value as SortOption)}
+    className="px-6 py-3 rounded-2xl border border-slate-100 bg-white text-xs font-bold shadow-sm"
+  >
+    <option value="newest">Newest First</option>
+    <option value="rating">Highest Rated</option>
+    <option value="comments">Most Commented</option>
+    <option value="popularity">Most Popular</option>
+  </select>
+</div>
+
+const sortedResources = useMemo(() => {
+  const arr = [...filtered];
+if (sortBy === "popularity") {
+  return arr.sort((a, b) => {
+    const aRatings = a.ratings
+      ? Object.values(a.ratings).map((r) => Number(r))
+      : [];
+    const bRatings = b.ratings
+      ? Object.values(b.ratings).map((r) => Number(r))
+      : [];
+
+    const aAvg =
+      aRatings.length > 0
+        ? aRatings.reduce((s, r) => s + r, 0) / aRatings.length
+        : 0;
+    const bAvg =
+      bRatings.length > 0
+        ? bRatings.reduce((s, r) => s + r, 0) / bRatings.length
+        : 0;
+
+    const aComments = a.comments ? Object.keys(a.comments).length : 0;
+    const bComments = b.comments ? Object.keys(b.comments).length : 0;
+
+    const aScore = aRatings.length * 5 + aAvg * 10 + aComments * 2;
+    const bScore = bRatings.length * 5 + bAvg * 10 + bComments * 2;
+
+    return bScore - aScore;
+  });
+}
+
+  if (sortBy === "rating") {
+    return arr.sort((a, b) => {
+      const aRatings = a.ratings
+        ? Object.values(a.ratings).map((r) => Number(r))
+        : [];
+      const bRatings = b.ratings
+        ? Object.values(b.ratings).map((r) => Number(r))
+        : [];
+
+      const aAvg =
+        aRatings.length > 0
+          ? aRatings.reduce((s, r) => s + r, 0) / aRatings.length
+          : 0;
+      const bAvg =
+        bRatings.length > 0
+          ? bRatings.reduce((s, r) => s + r, 0) / bRatings.length
+          : 0;
+
+      return bAvg - aAvg;
+    });
+  }
+
+  if (sortBy === "comments") {
+    return arr.sort((a, b) => {
+      const aCount = a.comments ? Object.keys(a.comments).length : 0;
+      const bCount = b.comments ? Object.keys(b.comments).length : 0;
+      return bCount - aCount;
+    });
+  }
+
+  // newest (default)
+  return arr.sort((a, b) => b.createdAt - a.createdAt);
+}, [filtered, sortBy]);
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-12">
@@ -1766,9 +1939,38 @@ const HomePage = ({
           ))}
         </div>
       </div>
+{selectedCat === "Books" && (
+  <div className="mb-10 flex justify-start">
+    <select
+      value={selectedGenre}
+      onChange={(e) => setSelectedGenre(e.target.value)}
+      className="px-6 py-3 rounded-2xl border border-slate-100 bg-white text-xs font-bold shadow-sm"
+    >
+      <option value="All">All Genres</option>
+      {bookGenres.map((g) => (
+        <option key={g} value={g}>
+          {g}
+        </option>
+      ))}
+    </select>
+  </div>
+)}
+{/* Sorting Dropdown */}
+<div className="mb-10 flex justify-end">
+  <select
+    value={sortBy}
+    onChange={(e) => setSortBy(e.target.value as SortOption)}
+    className="px-6 py-3 rounded-2xl border border-slate-100 bg-white text-xs font-bold shadow-sm"
+  >
+    <option value="newest">Newest First</option>
+    <option value="rating">Highest Rated</option>
+    <option value="comments">Most Commented</option>
+    <option value="popularity">Most Popular</option>
+  </select>
+</div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10">
-        {filtered.map((res) => (
+        {sortedResources.map((res) => (
           <ResourceCard
             key={res.id}
             resource={res}
