@@ -1,0 +1,7 @@
+{
+  "name": "HydraShare - Campus Resource Platform",
+  "description": "A centralized peer-to-peer sharing platform for Hyderabad college students to exchange books, notes, and lab equipment using AI-powered search and recommendations.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}

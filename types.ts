@@ -1,0 +1,58 @@
+
+export type Category = 'Books' | 'Notes' | 'Lab Equipment' | 'Electronics' | 'Others';
+
+export interface User {
+  id: string;
+  name: string;
+  college: string;
+  email: string;
+  password?: string;
+}
+
+export interface Comment {
+  id: string;
+  userId: string;
+  userName: string;
+  text: string;
+  timestamp: number;
+}
+
+export interface ChatMessage {
+  id: string;
+  senderId: string;
+  senderName: string;
+  text: string;
+  timestamp: number;
+}
+
+export interface Resource {
+  id: string;
+  title: string;
+  description: string;
+  category: Category;
+  ownerId: string;
+  ownerName: string;
+  college: string;
+  status: 'available' | 'borrowed';
+  imageUrl: string;
+  documentUrl?: string;
+  createdAt: number;
+  comments?: Record<string, Comment>;
+  ratings?: Record<string, number>; // userId -> rating (1-5)
+}
+
+export interface ShareRequest {
+  id: string;
+  resourceId: string;
+  requesterId: string;
+  requesterName: string;
+  status: 'pending' | 'accepted' | 'rejected';
+  message: string;
+  timestamp: number;
+  messages?: Record<string, ChatMessage>;
+}
+
+export interface Recommendation {
+  resourceId: string;
+  reason: string;
+}
