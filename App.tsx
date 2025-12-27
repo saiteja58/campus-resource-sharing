@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { getGeminiChatResponse } from "./services/geminiChat";
+import MyPostsPage from "./MyPostsPage";
+
 
 import {
   HashRouter,
@@ -298,6 +300,11 @@ const Header = ({
         >
           Dashboard
         </Link>
+        <Link 
+        className="text-sm font-semibold text-slate-500 hover:text-indigo-600 transition-colors"
+        to="/my-posts"
+        >My Posts</Link>
+
       </nav>
 
       <div className="flex items-center gap-4">
@@ -1645,6 +1652,20 @@ const userData: User = {
                 )
               }
             />
+            <Route
+  path="/my-posts"
+  element={
+    currentUser ? (
+      <MyPostsPage
+        user={currentUser}
+        resources={resources}
+      />
+    ) : (
+      <Navigate to="/auth" />
+    )
+  }
+/>
+
             <Route
               path="/profile"
               element={
