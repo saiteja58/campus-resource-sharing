@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
+import { getGeminiChatResponse } from "./services/geminiChat";
+
 import {
   HashRouter,
   Routes,
@@ -233,6 +235,10 @@ const RatingStars = ({
     </div>
   );
 };
+
+
+
+
 
 // --- Header Component ---
 const Header = ({
@@ -1491,6 +1497,10 @@ const App: React.FC = () => {
   const [reqMsg, setReqMsg] = useState("");
   const [loading, setLoading] = useState(true);
 
+
+
+
+
   useEffect(() => {
     const unsubAuth = onAuthStateChanged(auth, (fbUser) => {
       if (fbUser) {
@@ -1913,6 +1923,7 @@ const HomePage = ({
   onRequest: (id: string) => void;
   onSelectDetail: (id: string) => void;
 }) => {
+  
   const [query, setQuery] = useState("");
   const [selectedCat, setSelectedCat] = useState<string>("All");
   const [recommendations, setRecommendations] = useState<
@@ -1920,9 +1931,40 @@ const HomePage = ({
   >([]);
   const [loadingRecs, setLoadingRecs] = useState(false);
   const [selectedGenre, setSelectedGenre] = useState("All");
+<<<<<<< HEAD
 type SortOption = "newest" | "rating" | "comments" | "popularity";
 
 const [sortBy, setSortBy] = useState<SortOption>("newest");
+=======
+  const [aiInput, setAiInput] = useState("");
+const [aiReply, setAiReply] = useState<string | null>(null);
+const [aiMatches, setAiMatches] = useState<any[]>([]);
+const [aiLoading, setAiLoading] = useState(false);
+const handleAiSearch = async () => {
+  if (!aiInput.trim()) return;
+
+  setAiLoading(true);
+
+  try {
+    const res = await getGeminiChatResponse(aiInput, resources);
+
+    if (!res) {
+      setAiReply("Something went wrong. Try again.");
+      setAiMatches([]);
+      return;
+    }
+
+    setAiReply(res.reply ?? "Here are some results:");
+    setAiMatches(res.matches ?? []);
+  } catch (e) {
+    console.error(e);
+    setAiReply("Failed to fetch suggestions.");
+    setAiMatches([]);
+  } finally {
+    setAiLoading(false);
+  }
+};
+>>>>>>> dc3fe79 (Added gemini ai for smart searches)
 
 
 
@@ -2121,6 +2163,57 @@ if (sortBy === "popularity") {
           />
         </div>
       </section>
+
+        
+
+      <div className="bg-white rounded-3xl p-8 border border-slate-100 shadow-xl mb-12">
+  <h3 className="text-xl font-black text-slate-900 mb-4">
+    🤖 Ask Hydra AI
+  </h3>
+
+  <div className="flex gap-3">
+    <input
+      value={aiInput}
+      onChange={(e) => setAiInput(e.target.value)}
+      placeholder="Ask for notes, kits, subjects..."
+      className="flex-1 px-6 py-4 rounded-2xl border border-slate-200 font-bold"
+    />
+    <button
+      onClick={handleAiSearch}
+      disabled={aiLoading}
+      className="px-6 py-4 bg-indigo-600 text-white rounded-2xl font-black"
+    >
+      {aiLoading ? "Thinking..." : "Ask"}
+    </button>
+  </div>
+
+  {aiReply && (
+    <p className="mt-4 text-sm text-slate-600 font-medium">
+      🤖 {aiReply}
+    </p>
+  )}
+
+  {aiMatches.length > 0 && (
+    <div className="mt-6 space-y-3">
+      {aiMatches.map((m) => {
+        const res = resources.find(r => r.id === m.resourceId);
+        if (!res) return null;
+
+        return (
+          <div
+            key={m.resourceId}
+            onClick={() => onSelectDetail(res.id)}
+            className="p-4 rounded-xl border border-indigo-100 bg-indigo-50 cursor-pointer hover:bg-white transition"
+          >
+            <p className="font-bold text-slate-900">{res.title}</p>
+            <p className="text-xs text-indigo-500 mt-1">{m.reason}</p>
+          </div>
+        );
+      })}
+    </div>
+  )}
+</div>
+
 
       <div className="mb-12">
         <div className="flex overflow-x-auto pb-4 gap-3 no-scrollbar">
