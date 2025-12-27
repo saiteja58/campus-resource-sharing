@@ -277,36 +277,46 @@ const PostResourcePage = ({ user }: { user: User }) => {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsPosting(true);
-    try {
-      const resRef = push(ref(rtdb, "resources"));
-      const imageUrl = img
-        ? await fileToBase64(img)
-        : `https://picsum.photos/seed/${formData.title.replace(
-            /\s/g,
-            ""
-          )}/400/300`;
-      const documentUrl = pdf ? await fileToBase64(pdf) : "";
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  setIsPosting(true);
 
-      await set(resRef, {
-        ...formData,
-        imageUrl,
-        documentUrl,
-        ownerId: user.id,
-        ownerName: user.name,
-        college: user.college,
-        status: "available",
-        createdAt: Date.now(),
-      });
-      navigate("/");
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setIsPosting(false);
+  try {
+    const resRef = push(ref(rtdb, "resources"));
+
+    const imageUrl = img
+      ? await fileToBase64(img)
+      : `https://picsum.photos/seed/${formData.title.replace(/\s/g, "")}/400/300`;
+
+    let documentUrl = "";
+    if (pdf) {
+      documentUrl = await fileToBase64(pdf);
     }
-  };
+
+   await set(resRef, {
+  ...formData,
+  imageUrl,
+  documentUrl,
+  ownerId: user.id,
+  ownerName: user.name,
+  college: user.college,
+  status: "available",
+  createdAt: Date.now(),
+  viewCount: 0,
+...(pdf ? { downloadCount: 0 } : {}),
+ // 👁️ ADD THIS
+});
+
+
+    navigate("/"); // ✅ IMPORTANT
+  } catch (e) {
+    console.error(e);
+  } finally {
+    setIsPosting(false);
+  }
+};
+
+
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-16">
@@ -694,6 +704,7 @@ const ChatWindow = ({
 };
 
 // --- Detail Modal ---
+
 const ResourceDetailModal = ({
   resource,
   onClose,
@@ -709,6 +720,29 @@ const ResourceDetailModal = ({
 }) => {
   const [commentText, setCommentText] = useState("");
   const [isRating, setIsRating] = useState(false);
+  const [viewed, setViewed] = useState(false);
+  useEffect(() => {
+  setViewed(false);
+}, [resource.id]);
+
+    useEffect(() => {
+    if (viewed) return;
+
+    const incrementView = async () => {
+      try {
+        const count = resource.viewCount || 0;
+        await update(
+          ref(rtdb, `resources/${resource.id}`),
+          { viewCount: count + 1 }
+        );
+        setViewed(true); // prevent multiple increments
+      } catch (e) {
+        console.error("View count failed", e);
+      }
+    };
+
+    incrementView();
+  }, [resource.id]);
 
   const handlePostComment = async () => {
     if (!user || !commentText.trim()) return;
@@ -726,6 +760,28 @@ const ResourceDetailModal = ({
       console.error(e);
     }
   };
+  //added
+  const handleDownload = async () => {
+  try {
+    const count = resource.downloadCount || 0;
+
+    await update(
+      ref(rtdb, `resources/${resource.id}`),
+      { downloadCount: count + 1 }
+    );
+
+    // Trigger file download manually
+    const link = document.createElement("a");
+    link.href = resource.documentUrl!;
+    link.download = `${resource.title.replace(/\s/g, "_")}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  } catch (e) {
+    console.error("Download failed", e);
+  }
+};
+//till here
 
   const handleRate = async (score: number) => {
     if (!user) {
@@ -810,6 +866,16 @@ const ResourceDetailModal = ({
             <p className="text-sm text-slate-400 font-bold leading-relaxed line-clamp-2">
               {resource.description}
             </p>
+            <div className="flex items-center gap-4 mt-2 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+  <span>👁️ {resource.viewCount || 0} views</span>
+
+  {resource.documentUrl && (
+    <span>⬇️ {resource.downloadCount || 0} downloads</span>
+  )}
+</div>
+
+
+
           </div>
 
           {/* Scrollable Area: Keeps middle content scrollable and footer buttons accessible */}
@@ -909,28 +975,30 @@ const ResourceDetailModal = ({
             )}
 
             <div className="flex flex-col gap-3">
+              {/* changed */}
+
               {resource.documentUrl && (
-                <a
-                  href={resource.documentUrl}
-                  download={`${resource.title.replace(/\s/g, "_")}.pdf`}
-                  className="w-full py-5 bg-red-600 text-white rounded-2xl font-black text-center text-[10px] uppercase tracking-[0.2em] hover:bg-red-700 transition-all flex items-center justify-center gap-3 shadow-xl shadow-red-100"
-                >
-                  <svg
-                    className="w-5 h-5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2.5"
-                      d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                    ></path>
-                  </svg>
-                  Get Study Material (PDF)
-                </a>
-              )}
+  <button
+    onClick={handleDownload}
+    className="w-full py-5 bg-red-600 text-white rounded-2xl font-black text-center text-[10px] uppercase tracking-[0.2em] hover:bg-red-700 transition-all flex items-center justify-center gap-3 shadow-xl shadow-red-100"
+  >
+    <svg
+      className="w-5 h-5"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="2.5"
+        d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+      />
+    </svg>
+    Get Study Material (PDF)
+  </button>
+)}
+
               {!isOwner && (
                 <button
                   onClick={() => {

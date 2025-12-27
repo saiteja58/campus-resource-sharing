@@ -30,16 +30,22 @@ export interface Resource {
   title: string;
   description: string;
   category: Category;
+  imageUrl: string;
+  documentUrl?: string;
   ownerId: string;
   ownerName: string;
   college: string;
-  status: 'available' | 'borrowed';
-  imageUrl: string;
-  documentUrl?: string;
+  status: string;
   createdAt: number;
+
   comments?: Record<string, Comment>;
-  ratings?: Record<string, number>; // userId -> rating (1-5)
+  ratings?: Record<string, number>;
+
+    viewCount?: number;       // 👁️ views
+  downloadCount?: number;   // ⬇️ downloads (PDF only)
+
 }
+
 
 export interface ShareRequest {
   id: string;
