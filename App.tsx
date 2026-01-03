@@ -7,7 +7,6 @@ import React, { useState, useEffect, useMemo, useRef } from "react";
 import { getGeminiChatResponse } from "./services/geminiChat";
 import MyPostsPage from "./MyPostsPage";
 
-
 import {
   HashRouter,
   Routes,
@@ -23,6 +22,11 @@ import {
   updateProfile,
   signOut,
 } from "firebase/auth";
+
+import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
+
+const googleProvider = new GoogleAuthProvider();
+
 // Fixed Firebase database imports by removing unused members (query, orderByChild) and standardizing named imports
 import { ref, onValue, push, set, update } from "firebase/database";
 import { auth, rtdb } from "./firebase";
@@ -42,37 +46,35 @@ import {
 import ResourceCard from "./components/ResourceCard";
 
 // Helper to convert file to Base64
-const BADGE_META: Record<
-  string,
-  { title: string; icon: string; bg: string }
-> = {
-  "Community Insider": {
-  title: "Community Insider",
-  icon: "🧠",
-  bg: "bg-purple-100",
-},
+const BADGE_META: Record<string, { title: string; icon: string; bg: string }> =
+  {
+    "Community Insider": {
+      title: "Community Insider",
+      icon: "🧠",
+      bg: "bg-purple-100",
+    },
 
-  "First Upload": {
-    title: "First Upload",
-    icon: "📚",
-    bg: "bg-indigo-100",
-  },
-  "10 Comments": {
-    title: "10 Comments",
-    icon: "💬",
-    bg: "bg-green-100",
-  },
-  "10 Ratings Given": {
-    title: "10 Ratings Given",
-    icon: "⭐",
-    bg: "bg-yellow-100",
-  },
-  "100 Points Club": {
-    title: "100 Points Club",
-    icon: "🔥",
-    bg: "bg-red-100",
-  },
-};
+    "First Upload": {
+      title: "First Upload",
+      icon: "📚",
+      bg: "bg-indigo-100",
+    },
+    "10 Comments": {
+      title: "10 Comments",
+      icon: "💬",
+      bg: "bg-green-100",
+    },
+    "10 Ratings Given": {
+      title: "10 Ratings Given",
+      icon: "⭐",
+      bg: "bg-yellow-100",
+    },
+    "100 Points Club": {
+      title: "100 Points Club",
+      icon: "🔥",
+      bg: "bg-red-100",
+    },
+  };
 
 const calculateTier = (points: number): string => {
   if (points >= 500) return "Gold I";
@@ -114,44 +116,42 @@ const awardPoints = async (
 
       // Badge logic
       const badges = data.badges || {};
-if (badgeCheck === "upload" && !badges["First Upload"]) {
-  badges["First Upload"] = true;
-  newlyEarned = "First Upload";
-}
-if (
-  badgeCheck === "comment" &&
-  (data.stats?.comments || 0) + 1 >= 10 &&
-  !badges["10 Comments"]
-) {
-  badges["10 Comments"] = true;
-  newlyEarned = "10 Comments";
-}
-if (
-  badgeCheck === "rating" &&
-  (data.stats?.ratingsGiven || 0) + 1 >= 10 &&
-  !badges["10 Ratings Given"]
-) {
-  badges["10 Ratings Given"] = true;
-  newlyEarned = "10 Ratings Given";
-}
+      if (badgeCheck === "upload" && !badges["First Upload"]) {
+        badges["First Upload"] = true;
+        newlyEarned = "First Upload";
+      }
+      if (
+        badgeCheck === "comment" &&
+        (data.stats?.comments || 0) + 1 >= 10 &&
+        !badges["10 Comments"]
+      ) {
+        badges["10 Comments"] = true;
+        newlyEarned = "10 Comments";
+      }
+      if (
+        badgeCheck === "rating" &&
+        (data.stats?.ratingsGiven || 0) + 1 >= 10 &&
+        !badges["10 Ratings Given"]
+      ) {
+        badges["10 Ratings Given"] = true;
+        newlyEarned = "10 Ratings Given";
+      }
 
-if (newPoints >= 100 && !badges["100 Points Club"]) {
-  badges["100 Points Club"] = true;
-  newlyEarned = "100 Points Club";
-}
+      if (newPoints >= 100 && !badges["100 Points Club"]) {
+        badges["100 Points Club"] = true;
+        newlyEarned = "100 Points Club";
+      }
 
       updates.badges = badges;
 
       await update(userRef, updates);
       if (newlyEarned) {
-  setTimeout(() => {
-    window.dispatchEvent(
-      new CustomEvent("badge-earned", { detail: newlyEarned })
-    );
-  }, 100);
-}
-
-
+        setTimeout(() => {
+          window.dispatchEvent(
+            new CustomEvent("badge-earned", { detail: newlyEarned })
+          );
+        }, 100);
+      }
     },
     { onlyOnce: true }
   );
@@ -252,10 +252,6 @@ const RatingStars = ({
   );
 };
 
-
-
-
-
 // --- Header Component ---
 const Header = ({
   user,
@@ -312,16 +308,17 @@ const Header = ({
           Dashboard
         </Link>
         <Link
-  to="/events"
-  className="text-sm font-semibold text-slate-500 hover:text-indigo-600 transition-colors"
->
-  PostEvents
-</Link>
-        <Link 
-        className="text-sm font-semibold text-slate-500 hover:text-indigo-600 transition-colors"
-        to="/my-posts"
-        >My Posts</Link>
-
+          to="/events"
+          className="text-sm font-semibold text-slate-500 hover:text-indigo-600 transition-colors"
+        >
+          PostEvents
+        </Link>
+        <Link
+          className="text-sm font-semibold text-slate-500 hover:text-indigo-600 transition-colors"
+          to="/my-posts"
+        >
+          My Posts
+        </Link>
       </nav>
 
       <div className="flex items-center gap-4">
@@ -415,19 +412,18 @@ const Footer = () => (
 // --- Post Resource Page ---
 const PostResourcePage = ({ user }: { user: User }) => {
   const navigate = useNavigate();
-const [formData, setFormData] = useState({
-  title: "",
-  description: "",
-  category: "Books" as Category,
-  genre: "",
-});
+  const [formData, setFormData] = useState({
+    title: "",
+    description: "",
+    category: "Books" as Category,
+    genre: "",
+  });
   const [img, setImg] = useState<File | null>(null);
   const [pdf, setPdf] = useState<File | null>(null);
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
   const [isPosting, setIsPosting] = useState(false);
   const [isSuggesting, setIsSuggesting] = useState(false);
   const [existingGenres, setExistingGenres] = useState<string[]>([]);
-
 
   useEffect(() => {
     if (pdf) {
@@ -440,21 +436,20 @@ const [formData, setFormData] = useState({
   }, [pdf]);
 
   useEffect(() => {
-  onValue(ref(rtdb, "resources"), (snap) => {
-    const data = snap.val();
-    if (!data) return;
+    onValue(ref(rtdb, "resources"), (snap) => {
+      const data = snap.val();
+      if (!data) return;
 
-    const genres = new Set<string>();
-    Object.values(data).forEach((r: any) => {
-      if (r.category === "Books" && r.genre) {
-        genres.add(r.genre);
-      }
+      const genres = new Set<string>();
+      Object.values(data).forEach((r: any) => {
+        if (r.category === "Books" && r.genre) {
+          genres.add(r.genre);
+        }
+      });
+
+      setExistingGenres(Array.from(genres).sort());
     });
-
-    setExistingGenres(Array.from(genres).sort());
-  });
-}, []);
-
+  }, []);
 
   const handleAutoCategorize = async () => {
     if (!formData.title || !formData.description) return;
@@ -478,50 +473,48 @@ const [formData, setFormData] = useState({
     }
   };
 
-const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault();
-  setIsPosting(true);
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsPosting(true);
 
-  try {
-    const resRef = push(ref(rtdb, "resources"));
+    try {
+      const resRef = push(ref(rtdb, "resources"));
 
-    const imageUrl = img
-      ? await fileToBase64(img)
-      : `https://picsum.photos/seed/${formData.title.replace(/\s/g, "")}/400/300`;
+      const imageUrl = img
+        ? await fileToBase64(img)
+        : `https://picsum.photos/seed/${formData.title.replace(
+            /\s/g,
+            ""
+          )}/400/300`;
 
-    let documentUrl = "";
-    if (pdf) {
-      documentUrl = await fileToBase64(pdf);
+      let documentUrl = "";
+      if (pdf) {
+        documentUrl = await fileToBase64(pdf);
+      }
+
+      await set(resRef, {
+        ...formData,
+        imageUrl,
+        documentUrl,
+        ownerId: user.id,
+        ownerName: user.name,
+        college: user.college,
+        status: "available",
+        createdAt: Date.now(),
+        viewCount: 0,
+        ...(pdf ? { downloadCount: 0 } : {}),
+        // 👁️ ADD THIS
+      });
+      // ✅ AWARD POINTS FOR UPLOAD
+      await awardPoints(user.id, 10, "uploads", "upload");
+
+      navigate("/"); // ✅ IMPORTANT
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsPosting(false);
     }
-
-   await set(resRef, {
-  ...formData,
-  imageUrl,
-  documentUrl,
-  ownerId: user.id,
-  ownerName: user.name,
-  college: user.college,
-  status: "available",
-  createdAt: Date.now(),
-  viewCount: 0,
-...(pdf ? { downloadCount: 0 } : {}),
- // 👁️ ADD THIS
-}
-);
-// ✅ AWARD POINTS FOR UPLOAD
-await awardPoints(user.id, 10, "uploads", "upload");
-
-
-
-    navigate("/"); // ✅ IMPORTANT
-  } catch (e) {
-    console.error(e);
-  } finally {
-    setIsPosting(false);
-  }
-};
-
-
+  };
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-16">
@@ -616,29 +609,29 @@ await awardPoints(user.id, 10, "uploads", "upload");
                 </select>
               </div>
               {formData.category === "Books" && (
-  <div>
-    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block ml-1">
-      Book Genre
-    </label>
+                <div>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block ml-1">
+                    Book Genre
+                  </label>
 
-    <input
-      list="book-genre-list"
-      placeholder="e.g. Engineering Mathematics"
-      className="w-full px-5 py-4 rounded-2xl bg-slate-50 border border-slate-100 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none text-slate-900 text-sm font-bold"
-      value={formData.genre}
-      onChange={(e) =>
-        setFormData({ ...formData, genre: e.target.value })
-      }
-      required
-    />
+                  <input
+                    list="book-genre-list"
+                    placeholder="e.g. Engineering Mathematics"
+                    className="w-full px-5 py-4 rounded-2xl bg-slate-50 border border-slate-100 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none text-slate-900 text-sm font-bold"
+                    value={formData.genre}
+                    onChange={(e) =>
+                      setFormData({ ...formData, genre: e.target.value })
+                    }
+                    required
+                  />
 
-    <datalist id="book-genre-list">
-      {existingGenres.map((g) => (
-        <option key={g} value={g} />
-      ))}
-    </datalist>
-  </div>
-)}
+                  <datalist id="book-genre-list">
+                    {existingGenres.map((g) => (
+                      <option key={g} value={g} />
+                    ))}
+                  </datalist>
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-6">
                 <div className="group relative border-2 border-dashed border-slate-100 rounded-[2rem] p-6 text-center bg-slate-50/30 hover:bg-white hover:border-indigo-200 transition-all cursor-pointer">
@@ -951,19 +944,18 @@ const ResourceDetailModal = ({
   const [isRating, setIsRating] = useState(false);
   const [viewed, setViewed] = useState(false);
   useEffect(() => {
-  setViewed(false);
-}, [resource.id]);
+    setViewed(false);
+  }, [resource.id]);
 
-    useEffect(() => {
+  useEffect(() => {
     if (viewed) return;
 
     const incrementView = async () => {
       try {
         const count = resource.viewCount || 0;
-        await update(
-          ref(rtdb, `resources/${resource.id}`),
-          { viewCount: count + 1 }
-        );
+        await update(ref(rtdb, `resources/${resource.id}`), {
+          viewCount: count + 1,
+        });
         setViewed(true); // prevent multiple increments
       } catch (e) {
         console.error("View count failed", e);
@@ -986,21 +978,21 @@ const ResourceDetailModal = ({
       });
       await awardPoints(user.id, 1, "comments", "comment");
       // 🥚 Easter Egg Badge
-if (commentText.toLowerCase().includes("hydrashare")) {
-  const userRef = ref(rtdb, `users/${user.id}`);
+      if (commentText.toLowerCase().includes("hydrashare")) {
+        const userRef = ref(rtdb, `users/${user.id}`);
 
-  await update(userRef, {
-    [`badges/Community Insider`]: true,
-  });
+        await update(userRef, {
+          [`badges/Community Insider`]: true,
+        });
 
-  setTimeout(() => {
-    window.dispatchEvent(
-      new CustomEvent("badge-earned", {
-        detail: "Community Insider",
-      })
-    );
-  }, 100);
-}
+        setTimeout(() => {
+          window.dispatchEvent(
+            new CustomEvent("badge-earned", {
+              detail: "Community Insider",
+            })
+          );
+        }, 100);
+      }
 
       setCommentText("");
     } catch (e) {
@@ -1009,26 +1001,25 @@ if (commentText.toLowerCase().includes("hydrashare")) {
   };
   //added
   const handleDownload = async () => {
-  try {
-    const count = resource.downloadCount || 0;
+    try {
+      const count = resource.downloadCount || 0;
 
-    await update(
-      ref(rtdb, `resources/${resource.id}`),
-      { downloadCount: count + 1 }
-    );
+      await update(ref(rtdb, `resources/${resource.id}`), {
+        downloadCount: count + 1,
+      });
 
-    // Trigger file download manually
-    const link = document.createElement("a");
-    link.href = resource.documentUrl!;
-    link.download = `${resource.title.replace(/\s/g, "_")}.pdf`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  } catch (e) {
-    console.error("Download failed", e);
-  }
-};
-//till here
+      // Trigger file download manually
+      const link = document.createElement("a");
+      link.href = resource.documentUrl!;
+      link.download = `${resource.title.replace(/\s/g, "_")}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (e) {
+      console.error("Download failed", e);
+    }
+  };
+  //till here
 
   const handleRate = async (score: number) => {
     if (!user) {
@@ -1043,8 +1034,7 @@ if (commentText.toLowerCase().includes("hydrashare")) {
         score
       );
       await awardPoints(user.id, 1, "ratingsGiven", "rating");
-await awardPoints(resource.ownerId, 2, "ratingsReceived");
-
+      await awardPoints(resource.ownerId, 2, "ratingsReceived");
     } catch (e) {
       console.error("Failed to add rating", e);
       alert("Rating failed. Please check your connection.");
@@ -1117,15 +1107,12 @@ await awardPoints(resource.ownerId, 2, "ratingsReceived");
               {resource.description}
             </p>
             <div className="flex items-center gap-4 mt-2 text-[10px] font-black text-slate-400 uppercase tracking-widest">
-  <span>👁️ {resource.viewCount || 0} views</span>
+              <span>👁️ {resource.viewCount || 0} views</span>
 
-  {resource.documentUrl && (
-    <span>⬇️ {resource.downloadCount || 0} downloads</span>
-  )}
-</div>
-
-
-
+              {resource.documentUrl && (
+                <span>⬇️ {resource.downloadCount || 0} downloads</span>
+              )}
+            </div>
           </div>
 
           {/* Scrollable Area: Keeps middle content scrollable and footer buttons accessible */}
@@ -1228,26 +1215,26 @@ await awardPoints(resource.ownerId, 2, "ratingsReceived");
               {/* changed */}
 
               {resource.documentUrl && (
-  <button
-    onClick={handleDownload}
-    className="w-full py-5 bg-red-600 text-white rounded-2xl font-black text-center text-[10px] uppercase tracking-[0.2em] hover:bg-red-700 transition-all flex items-center justify-center gap-3 shadow-xl shadow-red-100"
-  >
-    <svg
-      className="w-5 h-5"
-      fill="none"
-      stroke="currentColor"
-      viewBox="0 0 24 24"
-    >
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth="2.5"
-        d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-      />
-    </svg>
-    Get Study Material (PDF)
-  </button>
-)}
+                <button
+                  onClick={handleDownload}
+                  className="w-full py-5 bg-red-600 text-white rounded-2xl font-black text-center text-[10px] uppercase tracking-[0.2em] hover:bg-red-700 transition-all flex items-center justify-center gap-3 shadow-xl shadow-red-100"
+                >
+                  <svg
+                    className="w-5 h-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2.5"
+                      d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                    />
+                  </svg>
+                  Get Study Material (PDF)
+                </button>
+              )}
 
               {!isOwner && (
                 <button
@@ -1291,21 +1278,71 @@ const AuthPage = ({ onDemoLogin }: { onDemoLogin: (u: User) => void }) => {
           password
         );
         await updateProfile(cred.user, { displayName: name });
-await set(ref(rtdb, `users/${cred.user.uid}`), {
-  name,
-  email,
-  college,
-  points: 0,
-  tier: "Bronze III",
-  badges: {},
-  stats: {
-    uploads: 0,
-    comments: 0,
-    ratingsGiven: 0,
-    ratingsReceived: 0,
+        const userRef = ref(rtdb, `users/${cred.user.uid}`);
+
+onValue(
+  userRef,
+  async (snap) => {
+    if (!snap.exists()) {
+      await set(userRef, {
+        name,
+        email,
+        college,
+        points: 0,
+        tier: "Bronze III",
+        badges: {},
+        stats: {
+          uploads: 0,
+          comments: 0,
+          ratingsGiven: 0,
+          ratingsReceived: 0,
+        },
+      });
+    }
   },
-});
+  { onlyOnce: true }
+);
+
       }
+      navigate("/");
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+  const handleGoogleLogin = async () => {
+    setLoading(true);
+    try {
+      const result = await signInWithPopup(auth, googleProvider);
+      const fbUser = result.user;
+
+      const userRef = ref(rtdb, `users/${fbUser.uid}`);
+
+      onValue(
+        userRef,
+        async (snap) => {
+          if (!snap.exists()) {
+            // 👇 create user ONLY if not exists
+            await set(userRef, {
+              name: fbUser.displayName || "Student",
+              email: fbUser.email,
+              college,
+              points: 0,
+              tier: "Bronze III",
+              badges: {},
+              stats: {
+                uploads: 0,
+                comments: 0,
+                ratingsGiven: 0,
+                ratingsReceived: 0,
+              },
+            });
+          }
+        },
+        { onlyOnce: true }
+      );
+
       navigate("/");
     } catch (err: any) {
       alert(err.message);
@@ -1390,6 +1427,19 @@ await set(ref(rtdb, `users/${cred.user.uid}`), {
             : "Already have an account? Sign In"}
         </button>
         <button
+          onClick={handleGoogleLogin}
+          disabled={loading}
+          className="w-full mt-4 flex items-center justify-center gap-3 border border-slate-200 py-5 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-50 transition-all shadow-sm"
+        >
+          <img
+            src="https://www.svgrepo.com/show/475656/google-color.svg"
+            className="w-5 h-5"
+            alt="Google"
+          />
+          Continue with Google
+        </button>
+
+        <button
           onClick={() => {
             const demoUser: User = {
               id: "demo_user",
@@ -1436,63 +1486,63 @@ const ProfilePage = ({
   return (
     <div className="max-w-2xl mx-auto px-4 py-20">
       <div className="bg-white rounded-[3rem] p-12 shadow-2xl shadow-indigo-100/30 border border-slate-100 text-center">
-<div className="flex flex-col items-center mb-8">
-  <div
-    className={`w-24 h-24 rounded-[2rem] flex items-center justify-center text-3xl font-black shadow-inner ${
-      getTierStyle(user.tier)
-    }`}
-  >
-    {user.name[0]}
-  </div>
+        <div className="flex flex-col items-center mb-8">
+          <div
+            className={`w-24 h-24 rounded-[2rem] flex items-center justify-center text-3xl font-black shadow-inner ${getTierStyle(
+              user.tier
+            )}`}
+          >
+            {user.name[0]}
+          </div>
 
-  <div className="mt-4 flex items-center gap-3">
-    <span className="px-4 py-1.5 rounded-full bg-indigo-600 text-white text-[10px] font-black uppercase tracking-widest">
-      {user.points} Points
-    </span>
+          <div className="mt-4 flex items-center gap-3">
+            <span className="px-4 py-1.5 rounded-full bg-indigo-600 text-white text-[10px] font-black uppercase tracking-widest">
+              {user.points} Points
+            </span>
 
-    <span
-      className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest ${getTierStyle(
-        user.tier
-      )}`}
-    >
-      {user.tier}
-    </span>
-  </div>
-</div>
+            <span
+              className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest ${getTierStyle(
+                user.tier
+              )}`}
+            >
+              {user.tier}
+            </span>
+          </div>
+        </div>
         <h2 className="text-3xl font-black text-slate-900 mb-2">{user.name}</h2>
         <p className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-10">
           {user.email}
         </p>
-<div className="mt-8">
-  <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">
-    Badges Earned
-  </h4>
+        <div className="mt-8">
+          <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">
+            Badges Earned
+          </h4>
 
-  {user.badges && Object.keys(user.badges).length > 0 ? (
-    <div className="flex flex-wrap gap-3 justify-center">
-{Object.keys(user.badges).map((b) => {
-  const meta = BADGE_META[b] || {
-    icon: "🏅",
-    bg: "bg-slate-100",
-  };
+          {user.badges && Object.keys(user.badges).length > 0 ? (
+            <div className="flex flex-wrap gap-3 justify-center">
+              {Object.keys(user.badges).map((b) => {
+                const meta = BADGE_META[b] || {
+                  icon: "🏅",
+                  bg: "bg-slate-100",
+                };
 
-  return (
-    <div
-      key={b}
-      className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest ${meta.bg}`}
-    >
-      <span className="text-lg">{meta.icon}</span>
-      <span>{b}</span>
-    </div>
-  );
-})}
-    </div>
-  ) : (
-    <p className="text-[10px] text-slate-300 font-bold uppercase tracking-widest">
-      No badges yet
-    </p>
-  )}
-</div>
+                return (
+                  <div
+                    key={b}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest ${meta.bg}`}
+                  >
+                    <span className="text-lg">{meta.icon}</span>
+                    <span>{b}</span>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="text-[10px] text-slate-300 font-bold uppercase tracking-widest">
+              No badges yet
+            </p>
+          )}
+        </div>
 
         <div className="text-left space-y-8 max-w-sm mx-auto">
           <div>
@@ -1529,13 +1579,13 @@ const App: React.FC = () => {
   const [earnedBadge, setEarnedBadge] = useState<string | null>(null);
 
   useEffect(() => {
-const handler = (e: any) => {
-  console.log("BADGE EVENT RECEIVED:", e.detail);
-  setEarnedBadge(e.detail);
+    const handler = (e: any) => {
+      console.log("BADGE EVENT RECEIVED:", e.detail);
+      setEarnedBadge(e.detail);
 
-  // 👇 FORCE USER STATE REFRESH
-  setCurrentUser((prev) => (prev ? { ...prev } : prev));
-};
+      // 👇 FORCE USER STATE REFRESH
+      setCurrentUser((prev) => (prev ? { ...prev } : prev));
+    };
 
     window.addEventListener("badge-earned", handler);
 
@@ -1556,51 +1606,48 @@ const handler = (e: any) => {
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
   const [reqMsg, setReqMsg] = useState("");
   const [loading, setLoading] = useState(true);
-const platformStats = useMemo(() => {
-  const totalResources = resources.length;
+  const platformStats = useMemo(() => {
+    const totalResources = resources.length;
 
-  const totalDownloads = resources.reduce(
-    (sum, r) => sum + (r.downloadCount || 0),
-    0
-  );
+    const totalDownloads = resources.reduce(
+      (sum, r) => sum + (r.downloadCount || 0),
+      0
+    );
 
-  const totalViews = resources.reduce(
-    (sum, r) => sum + (r.viewCount || 0),
-    0
-  );
+    const totalViews = resources.reduce(
+      (sum, r) => sum + (r.viewCount || 0),
+      0
+    );
 
-  return {
-    totalResources,
-    totalDownloads,
-    totalViews,
-  };
-}, [resources]);
-
-
-
+    return {
+      totalResources,
+      totalDownloads,
+      totalViews,
+    };
+  }, [resources]);
 
   useEffect(() => {
     const unsubAuth = onAuthStateChanged(auth, (fbUser) => {
       if (fbUser) {
         onValue(ref(rtdb, `users/${fbUser.uid}`), (snap) => {
           const d = snap.val();
-const userData: User = {
-  id: fbUser.uid,
-  name: fbUser.displayName || d?.name || "Student",
-  email: fbUser.email || "",
-  college: d?.college || HYDERABAD_COLLEGES[0],
+          const userData: User = {
+            id: fbUser.uid,
+            name: fbUser.displayName || d?.name || "Student",
+            email: fbUser.email || "",
+            college: d?.college || HYDERABAD_COLLEGES[0],
 
-  points: d?.points ?? 0,
-  tier: d?.tier ?? "Bronze III",
+            points: d?.points ?? 0,
+            tier: d?.tier ?? "Bronze III",
 
-  badges: d?.badges ?? {},
-  stats: d?.stats ?? {
-    uploads: 0,
-    comments: 0,
-    ratingsGiven: 0,
-    ratingsReceived: 0,
-  },
-};
+            badges: d?.badges ?? {},
+            stats: d?.stats ?? {
+              uploads: 0,
+              comments: 0,
+              ratingsGiven: 0,
+              ratingsReceived: 0,
+            },
+          };
           setCurrentUser(userData);
           sessionStorage.setItem("hydrashare_user", JSON.stringify(userData));
         });
@@ -1636,32 +1683,31 @@ const userData: User = {
   };
 
   const handleSendReq = async () => {
-  if (!showRequestModal || !currentUser || !reqMsg.trim()) return;
+    if (!showRequestModal || !currentUser || !reqMsg.trim()) return;
 
-  const requestRef = push(ref(rtdb, "requests"));
+    const requestRef = push(ref(rtdb, "requests"));
 
-  const messageRef = push(ref(rtdb, `requests/${requestRef.key}/messages`));
+    const messageRef = push(ref(rtdb, `requests/${requestRef.key}/messages`));
 
-  await set(requestRef, {
-    resourceId: showRequestModal,
-    requesterId: currentUser.id,
-    requesterName: currentUser.name,
-    status: "pending",
-    timestamp: Date.now(),
-  });
+    await set(requestRef, {
+      resourceId: showRequestModal,
+      requesterId: currentUser.id,
+      requesterName: currentUser.name,
+      status: "pending",
+      timestamp: Date.now(),
+    });
 
-  await set(messageRef, {
-    id: messageRef.key,
-    senderId: currentUser.id,
-    senderName: currentUser.name,
-    text: reqMsg,
-    timestamp: Date.now(),
-  });
+    await set(messageRef, {
+      id: messageRef.key,
+      senderId: currentUser.id,
+      senderName: currentUser.name,
+      text: reqMsg,
+      timestamp: Date.now(),
+    });
 
-  setShowRequestModal(null);
-  setReqMsg("");
-};
-
+    setShowRequestModal(null);
+    setReqMsg("");
+  };
 
   const handleAcceptRequest = async (reqId: string) => {
     await update(ref(rtdb, `requests/${reqId}`), { status: "accepted" });
@@ -1674,356 +1720,354 @@ const userData: User = {
       </div>
     );
 
-    return (
-  <EventProvider>
-    <HashRouter>
-      <div className="min-h-screen flex flex-col bg-[#fafafa]">
-        <Header user={currentUser} onLogout={handleLogout} />
-        <main className="flex-grow">
-          <Routes>
-            <Route path="/events" element={<Events />} />
+  return (
+    <EventProvider>
+      <HashRouter>
+        <div className="min-h-screen flex flex-col bg-[#fafafa]">
+          <Header user={currentUser} onLogout={handleLogout} />
+          <main className="flex-grow">
+            <Routes>
+              <Route path="/events" element={<Events />} />
 
-          <Route
-            path="/events/create"
-            element={
-            currentUser ? <CreateEvent /> : <Navigate to="/auth" />
-            }
-            />
+              <Route
+                path="/events/create"
+                element={
+                  currentUser ? <CreateEvent /> : <Navigate to="/auth" />
+                }
+              />
 
-          <Route path="/events/:id" element={<EventDetails />} />
+              <Route path="/events/:id" element={<EventDetails />} />
 
-<Route
-  path="/"
-  element={
-    <HomePage
-      resources={resources}
-      stats={platformStats}
-      onSelectDetail={setSelectedDetailId}
-      onRequest={setShowRequestModal}
-    />
-  }
-/>
-            <Route
-              path="/auth"
-              element={<AuthPage onDemoLogin={setCurrentUser} />}
-            />
-            <Route
-              path="/post"
-              element={
-                currentUser ? (
-                  <PostResourcePage user={currentUser} />
-                ) : (
-                  <Navigate to="/auth" />
-                )
-              }
-            />
-            <Route
-  path="/my-posts"
-  element={
-    currentUser ? (
-      <MyPostsPage
-        user={currentUser}
-        resources={resources}
-      />
-    ) : (
-      <Navigate to="/auth" />
-    )
-  }
-/>
-
-            <Route
-              path="/profile"
-              element={
-                currentUser ? (
-                  <ProfilePage
-                    user={currentUser}
-                    onUpdate={(d) => setCurrentUser({ ...currentUser, ...d })}
+              <Route
+                path="/"
+                element={
+                  <HomePage
+                    resources={resources}
+                    stats={platformStats}
+                    onSelectDetail={setSelectedDetailId}
+                    onRequest={setShowRequestModal}
                   />
-                ) : (
-                  <Navigate to="/auth" />
-                )
-              }
-            />
-            <Route
-              path="/my-items"
-              element={
-                currentUser ? (
-                  <div className="max-w-7xl mx-auto px-4 py-16">
-                    <div className="flex flex-col md:flex-row justify-between items-end gap-6 mb-12">
-                      <div>
-                        <h2 className="text-5xl font-black text-slate-900 mb-2">
-                          My Hub
-                        </h2>
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">
-                          Coordination Center
-                        </p>
-                      </div>
-                      <Link
-                        to="/post"
-                        className="bg-indigo-600 text-white px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition-all"
-                      >
-                        New Listing
-                      </Link>
-                    </div>
+                }
+              />
+              <Route
+                path="/auth"
+                element={<AuthPage onDemoLogin={setCurrentUser} />}
+              />
+              <Route
+                path="/post"
+                element={
+                  currentUser ? (
+                    <PostResourcePage user={currentUser} />
+                  ) : (
+                    <Navigate to="/auth" />
+                  )
+                }
+              />
+              <Route
+                path="/my-posts"
+                element={
+                  currentUser ? (
+                    <MyPostsPage user={currentUser} resources={resources} />
+                  ) : (
+                    <Navigate to="/auth" />
+                  )
+                }
+              />
 
-                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 h-[700px]">
-                      <div className="lg:col-span-4 flex flex-col gap-6 overflow-y-auto no-scrollbar pr-2">
-                        <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm">
-                          <h4 className="font-black text-slate-300 uppercase text-[9px] mb-6 tracking-widest flex items-center gap-2">
-                            <div className="w-1.5 h-1.5 bg-amber-500 rounded-full"></div>
-                            Pending Inquiries
-                          </h4>
-                          <div className="space-y-3">
-                            {requests.filter(
-                              (r) =>
-                                r.status === "pending" &&
-                                resources.find((res) => res.id === r.resourceId)
-                                  ?.ownerId === currentUser.id
-                            ).length > 0 ? (
-                              requests
-                                .filter(
-                                  (r) =>
-                                    r.status === "pending" &&
-                                    resources.find(
-                                      (res) => res.id === r.resourceId
-                                    )?.ownerId === currentUser.id
-                                )
-                                .map((r) => (
-                                  <div
-                                    key={r.id}
-                                    className="p-4 bg-slate-50 rounded-2xl border border-slate-100"
-                                  >
-                                    <div className="flex justify-between items-start mb-2">
-                                      <p className="text-xs font-black text-slate-900">
-                                        {r.requesterName}
-                                      </p>
-                                      <span className="text-[8px] font-black text-slate-300 uppercase">
-                                        {new Date(
-                                          r.timestamp
-                                        ).toLocaleDateString()}
-                                      </span>
-                                    </div>
-                                    <p className="text-[10px] text-indigo-600 font-bold mb-3 uppercase tracking-tighter truncate">
-                                      Wants:{" "}
-                                      {
-                                        resources.find(
-                                          (res) => res.id === r.resourceId
-                                        )?.title
-                                      }
-                                    </p>
-                                    <div className="flex gap-2">
-                                      <button
-                                        onClick={() =>
-                                          handleAcceptRequest(r.id)
-                                        }
-                                        className="flex-1 py-2 bg-indigo-600 text-white rounded-lg text-[9px] font-black uppercase tracking-widest"
-                                      >
-                                        Accept
-                                      </button>
-                                      <button className="flex-1 py-2 bg-slate-200 text-slate-400 rounded-lg text-[9px] font-black uppercase tracking-widest">
-                                        Deny
-                                      </button>
-                                    </div>
-                                  </div>
-                                ))
-                            ) : (
-                              <p className="text-[10px] text-center py-4 font-black text-slate-200 uppercase tracking-widest">
-                                No pending items
-                              </p>
-                            )}
-                          </div>
+              <Route
+                path="/profile"
+                element={
+                  currentUser ? (
+                    <ProfilePage
+                      user={currentUser}
+                      onUpdate={(d) => setCurrentUser({ ...currentUser, ...d })}
+                    />
+                  ) : (
+                    <Navigate to="/auth" />
+                  )
+                }
+              />
+              <Route
+                path="/my-items"
+                element={
+                  currentUser ? (
+                    <div className="max-w-7xl mx-auto px-4 py-16">
+                      <div className="flex flex-col md:flex-row justify-between items-end gap-6 mb-12">
+                        <div>
+                          <h2 className="text-5xl font-black text-slate-900 mb-2">
+                            My Hub
+                          </h2>
+                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">
+                            Coordination Center
+                          </p>
                         </div>
+                        <Link
+                          to="/post"
+                          className="bg-indigo-600 text-white px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition-all"
+                        >
+                          New Listing
+                        </Link>
+                      </div>
 
-                        <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm flex-grow">
-                          <h4 className="font-black text-slate-300 uppercase text-[9px] mb-6 tracking-widest flex items-center gap-2">
-                            <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>
-                            Active Conversations
-                          </h4>
-                          <div className="space-y-3">
-                            {requests.filter(
-                              (r) =>
-                                r.status === "accepted" &&
-                                (r.requesterId === currentUser.id ||
+                      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 h-[700px]">
+                        <div className="lg:col-span-4 flex flex-col gap-6 overflow-y-auto no-scrollbar pr-2">
+                          <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm">
+                            <h4 className="font-black text-slate-300 uppercase text-[9px] mb-6 tracking-widest flex items-center gap-2">
+                              <div className="w-1.5 h-1.5 bg-amber-500 rounded-full"></div>
+                              Pending Inquiries
+                            </h4>
+                            <div className="space-y-3">
+                              {requests.filter(
+                                (r) =>
+                                  r.status === "pending" &&
                                   resources.find(
                                     (res) => res.id === r.resourceId
-                                  )?.ownerId === currentUser.id)
-                            ).length > 0 ? (
-                              requests
-                                .filter(
-                                  (r) =>
-                                    r.status === "accepted" &&
-                                    (r.requesterId === currentUser.id ||
+                                  )?.ownerId === currentUser.id
+                              ).length > 0 ? (
+                                requests
+                                  .filter(
+                                    (r) =>
+                                      r.status === "pending" &&
                                       resources.find(
                                         (res) => res.id === r.resourceId
-                                      )?.ownerId === currentUser.id)
-                                )
-                                .map((r) => {
-                                  const res = resources.find(
-                                    (res) => res.id === r.resourceId
-                                  );
-                                  const isMeOwner =
-                                    res?.ownerId === currentUser.id;
-                                  return (
+                                      )?.ownerId === currentUser.id
+                                  )
+                                  .map((r) => (
                                     <div
                                       key={r.id}
-                                      onClick={() => setSelectedChatId(r.id)}
-                                      className={`p-4 rounded-2xl cursor-pointer transition-all border ${
-                                        selectedChatId === r.id
-                                          ? "bg-indigo-600 text-white border-indigo-600 shadow-xl"
-                                          : "bg-slate-50 text-slate-900 border-slate-100 hover:bg-white hover:shadow-md"
-                                      }`}
+                                      className="p-4 bg-slate-50 rounded-2xl border border-slate-100"
                                     >
-                                      <div className="flex justify-between items-center mb-1">
-                                        <p className="text-xs font-black">
-                                          {isMeOwner
-                                            ? r.requesterName
-                                            : res?.ownerName}
+                                      <div className="flex justify-between items-start mb-2">
+                                        <p className="text-xs font-black text-slate-900">
+                                          {r.requesterName}
                                         </p>
-                                        <div
-                                          className={`w-2 h-2 rounded-full ${
-                                            selectedChatId === r.id
-                                              ? "bg-white"
-                                              : "bg-indigo-500"
-                                          }`}
-                                        ></div>
+                                        <span className="text-[8px] font-black text-slate-300 uppercase">
+                                          {new Date(
+                                            r.timestamp
+                                          ).toLocaleDateString()}
+                                        </span>
                                       </div>
-                                      <p
-                                        className={`text-[9px] font-bold uppercase tracking-tight truncate ${
+                                      <p className="text-[10px] text-indigo-600 font-bold mb-3 uppercase tracking-tighter truncate">
+                                        Wants:{" "}
+                                        {
+                                          resources.find(
+                                            (res) => res.id === r.resourceId
+                                          )?.title
+                                        }
+                                      </p>
+                                      <div className="flex gap-2">
+                                        <button
+                                          onClick={() =>
+                                            handleAcceptRequest(r.id)
+                                          }
+                                          className="flex-1 py-2 bg-indigo-600 text-white rounded-lg text-[9px] font-black uppercase tracking-widest"
+                                        >
+                                          Accept
+                                        </button>
+                                        <button className="flex-1 py-2 bg-slate-200 text-slate-400 rounded-lg text-[9px] font-black uppercase tracking-widest">
+                                          Deny
+                                        </button>
+                                      </div>
+                                    </div>
+                                  ))
+                              ) : (
+                                <p className="text-[10px] text-center py-4 font-black text-slate-200 uppercase tracking-widest">
+                                  No pending items
+                                </p>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm flex-grow">
+                            <h4 className="font-black text-slate-300 uppercase text-[9px] mb-6 tracking-widest flex items-center gap-2">
+                              <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>
+                              Active Conversations
+                            </h4>
+                            <div className="space-y-3">
+                              {requests.filter(
+                                (r) =>
+                                  r.status === "accepted" &&
+                                  (r.requesterId === currentUser.id ||
+                                    resources.find(
+                                      (res) => res.id === r.resourceId
+                                    )?.ownerId === currentUser.id)
+                              ).length > 0 ? (
+                                requests
+                                  .filter(
+                                    (r) =>
+                                      r.status === "accepted" &&
+                                      (r.requesterId === currentUser.id ||
+                                        resources.find(
+                                          (res) => res.id === r.resourceId
+                                        )?.ownerId === currentUser.id)
+                                  )
+                                  .map((r) => {
+                                    const res = resources.find(
+                                      (res) => res.id === r.resourceId
+                                    );
+                                    const isMeOwner =
+                                      res?.ownerId === currentUser.id;
+                                    return (
+                                      <div
+                                        key={r.id}
+                                        onClick={() => setSelectedChatId(r.id)}
+                                        className={`p-4 rounded-2xl cursor-pointer transition-all border ${
                                           selectedChatId === r.id
-                                            ? "text-indigo-100"
-                                            : "text-slate-400"
+                                            ? "bg-indigo-600 text-white border-indigo-600 shadow-xl"
+                                            : "bg-slate-50 text-slate-900 border-slate-100 hover:bg-white hover:shadow-md"
                                         }`}
                                       >
-                                        {res?.title}
-                                      </p>
-                                    </div>
-                                  );
-                                })
-                            ) : (
-                              <p className="text-[10px] text-center py-8 font-black text-slate-200 uppercase tracking-widest">
-                                No active chats
-                              </p>
-                            )}
+                                        <div className="flex justify-between items-center mb-1">
+                                          <p className="text-xs font-black">
+                                            {isMeOwner
+                                              ? r.requesterName
+                                              : res?.ownerName}
+                                          </p>
+                                          <div
+                                            className={`w-2 h-2 rounded-full ${
+                                              selectedChatId === r.id
+                                                ? "bg-white"
+                                                : "bg-indigo-500"
+                                            }`}
+                                          ></div>
+                                        </div>
+                                        <p
+                                          className={`text-[9px] font-bold uppercase tracking-tight truncate ${
+                                            selectedChatId === r.id
+                                              ? "text-indigo-100"
+                                              : "text-slate-400"
+                                          }`}
+                                        >
+                                          {res?.title}
+                                        </p>
+                                      </div>
+                                    );
+                                  })
+                              ) : (
+                                <p className="text-[10px] text-center py-8 font-black text-slate-200 uppercase tracking-widest">
+                                  No active chats
+                                </p>
+                              )}
+                            </div>
                           </div>
                         </div>
-                      </div>
 
-                      <div className="lg:col-span-8 bg-white rounded-[3rem] border border-slate-100 shadow-xl overflow-hidden relative">
-                        {selectedChatId ? (
-                          <ChatWindow
-                            request={
-                              requests.find((r) => r.id === selectedChatId)!
-                            }
-                            user={currentUser}
-                            onClose={() => setSelectedChatId(null)}
-                            resource={resources.find(
-                              (res) =>
-                                res.id ===
-                                requests.find((r) => r.id === selectedChatId)
-                                  ?.resourceId
-                            )}
-                          />
-                        ) : (
-                          <div className="h-full flex flex-col items-center justify-center text-center p-12 opacity-30">
-                            <div className="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center mb-6">
-                              <svg
-                                className="w-10 h-10 text-slate-300"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth="2"
-                                  d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-                                ></path>
-                              </svg>
+                        <div className="lg:col-span-8 bg-white rounded-[3rem] border border-slate-100 shadow-xl overflow-hidden relative">
+                          {selectedChatId ? (
+                            <ChatWindow
+                              request={
+                                requests.find((r) => r.id === selectedChatId)!
+                              }
+                              user={currentUser}
+                              onClose={() => setSelectedChatId(null)}
+                              resource={resources.find(
+                                (res) =>
+                                  res.id ===
+                                  requests.find((r) => r.id === selectedChatId)
+                                    ?.resourceId
+                              )}
+                            />
+                          ) : (
+                            <div className="h-full flex flex-col items-center justify-center text-center p-12 opacity-30">
+                              <div className="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center mb-6">
+                                <svg
+                                  className="w-10 h-10 text-slate-300"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth="2"
+                                    d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                                  ></path>
+                                </svg>
+                              </div>
+                              <h4 className="text-xl font-black text-slate-900">
+                                Select a Conversation
+                              </h4>
+                              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-2">
+                                Chat with peers to coordinate hand-offs
+                              </p>
                             </div>
-                            <h4 className="text-xl font-black text-slate-900">
-                              Select a Conversation
-                            </h4>
-                            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-2">
-                              Chat with peers to coordinate hand-offs
-                            </p>
-                          </div>
-                        )}
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ) : (
-                  <Navigate to="/auth" />
-                )
+                  ) : (
+                    <Navigate to="/auth" />
+                  )
+                }
+              />
+            </Routes>
+          </main>
+          <Footer />
+
+          {selectedDetailId && (
+            <ResourceDetailModal
+              resource={resources.find((r) => r.id === selectedDetailId)!}
+              onClose={() => setSelectedDetailId(null)}
+              onAction={setShowRequestModal}
+              isOwner={
+                currentUser?.id ===
+                resources.find((r) => r.id === selectedDetailId)?.ownerId
               }
+              user={currentUser}
             />
-          </Routes>
-        </main>
-        <Footer />
+          )}
 
-        {selectedDetailId && (
-          <ResourceDetailModal
-            resource={resources.find((r) => r.id === selectedDetailId)!}
-            onClose={() => setSelectedDetailId(null)}
-            onAction={setShowRequestModal}
-            isOwner={
-              currentUser?.id ===
-              resources.find((r) => r.id === selectedDetailId)?.ownerId
-            }
-            user={currentUser}
-          />
-        )}
+          {showRequestModal && (
+            <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md animate-in fade-in duration-300">
+              <div className="bg-white rounded-[3rem] w-full max-w-md p-10 md:p-14 shadow-2xl animate-in zoom-in duration-300">
+                <div className="text-center mb-10">
+                  <h3 className="text-3xl font-black text-slate-900 mb-2">
+                    Send Inquiry
+                  </h3>
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                    Private Message to Owner
+                  </p>
+                </div>
 
-        {showRequestModal && (
-          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md animate-in fade-in duration-300">
-            <div className="bg-white rounded-[3rem] w-full max-w-md p-10 md:p-14 shadow-2xl animate-in zoom-in duration-300">
-              <div className="text-center mb-10">
-                <h3 className="text-3xl font-black text-slate-900 mb-2">
-                  Send Inquiry
-                </h3>
-                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                  Private Message to Owner
-                </p>
-              </div>
+                <div className="space-y-2 mb-8">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                    Your Message
+                  </label>
+                  <textarea
+                    placeholder="Hey, I'm interested! Can we connect for a quick exchange?"
+                    className="w-full p-6 rounded-[2rem] border border-slate-100 bg-slate-50 text-sm font-bold text-slate-900 min-h-[160px] focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all placeholder:text-slate-300 shadow-sm"
+                    value={reqMsg}
+                    onChange={(e) => setReqMsg(e.target.value)}
+                  />
+                </div>
 
-              <div className="space-y-2 mb-8">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
-                  Your Message
-                </label>
-                <textarea
-                  placeholder="Hey, I'm interested! Can we connect for a quick exchange?"
-                  className="w-full p-6 rounded-[2rem] border border-slate-100 bg-slate-50 text-sm font-bold text-slate-900 min-h-[160px] focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all placeholder:text-slate-300 shadow-sm"
-                  value={reqMsg}
-                  onChange={(e) => setReqMsg(e.target.value)}
-                />
-              </div>
-
-              <div className="flex flex-col gap-3">
-                <button
-                  onClick={handleSendReq}
-                  className="w-full bg-indigo-600 text-white py-5 rounded-[1.5rem] font-black uppercase tracking-[0.2em] text-[10px] shadow-2xl shadow-indigo-100 hover:bg-indigo-700 transition-all"
-                >
-                  Send Inquiry
-                </button>
-                <button
-                  onClick={() => setShowRequestModal(null)}
-                  className="w-full py-4 text-slate-400 font-black uppercase text-[10px] tracking-widest hover:text-slate-600 transition-colors"
-                >
-                  Discard
-                </button>
+                <div className="flex flex-col gap-3">
+                  <button
+                    onClick={handleSendReq}
+                    className="w-full bg-indigo-600 text-white py-5 rounded-[1.5rem] font-black uppercase tracking-[0.2em] text-[10px] shadow-2xl shadow-indigo-100 hover:bg-indigo-700 transition-all"
+                  >
+                    Send Inquiry
+                  </button>
+                  <button
+                    onClick={() => setShowRequestModal(null)}
+                    className="w-full py-4 text-slate-400 font-black uppercase text-[10px] tracking-widest hover:text-slate-600 transition-colors"
+                  >
+                    Discard
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
-        )}
-      </div>    
+          )}
+        </div>
         {earnedBadge && (
-  <BadgeCongratsModal
-    badge={earnedBadge}
-    onClose={() => setEarnedBadge(null)}
-  />
-)}
-    </HashRouter>
-  </EventProvider>
-);
+          <BadgeCongratsModal
+            badge={earnedBadge}
+            onClose={() => setEarnedBadge(null)}
+          />
+        )}
+      </HashRouter>
+    </EventProvider>
+  );
 };
 
 // --- HomePage Component ---
@@ -2049,42 +2093,40 @@ const HomePage = ({
   >([]);
   const [loadingRecs, setLoadingRecs] = useState(false);
   const [selectedGenre, setSelectedGenre] = useState("All");
-// <<<<<<< HEAD
-type SortOption = "newest" | "rating" | "comments" | "popularity";
+  // <<<<<<< HEAD
+  type SortOption = "newest" | "rating" | "comments" | "popularity";
 
-const [sortBy, setSortBy] = useState<SortOption>("newest");
-// =======
+  const [sortBy, setSortBy] = useState<SortOption>("newest");
+  // =======
   const [aiInput, setAiInput] = useState("");
-const [aiReply, setAiReply] = useState<string | null>(null);
-const [aiMatches, setAiMatches] = useState<any[]>([]);
-const [aiLoading, setAiLoading] = useState(false);
-const handleAiSearch = async () => {
-  if (!aiInput.trim()) return;
+  const [aiReply, setAiReply] = useState<string | null>(null);
+  const [aiMatches, setAiMatches] = useState<any[]>([]);
+  const [aiLoading, setAiLoading] = useState(false);
+  const handleAiSearch = async () => {
+    if (!aiInput.trim()) return;
 
-  setAiLoading(true);
+    setAiLoading(true);
 
-  try {
-    const res = await getGeminiChatResponse(aiInput, resources);
+    try {
+      const res = await getGeminiChatResponse(aiInput, resources);
 
-    if (!res) {
-      setAiReply("Something went wrong. Try again.");
+      if (!res) {
+        setAiReply("Something went wrong. Try again.");
+        setAiMatches([]);
+        return;
+      }
+
+      setAiReply(res.reply ?? "Here are some results:");
+      setAiMatches(res.matches ?? []);
+    } catch (e) {
+      console.error(e);
+      setAiReply("Failed to fetch suggestions.");
       setAiMatches([]);
-      return;
+    } finally {
+      setAiLoading(false);
     }
-
-    setAiReply(res.reply ?? "Here are some results:");
-    setAiMatches(res.matches ?? []);
-  } catch (e) {
-    console.error(e);
-    setAiReply("Failed to fetch suggestions.");
-    setAiMatches([]);
-  } finally {
-    setAiLoading(false);
-  }
-};
-// >>>>>>> dc3fe79 (Added gemini ai for smart searches)
-
-
+  };
+  // >>>>>>> dc3fe79 (Added gemini ai for smart searches)
 
   // Use Gemini to get smart recommendations based on search query
   useEffect(() => {
@@ -2105,95 +2147,94 @@ const handleAiSearch = async () => {
     }, 1000);
     return () => clearTimeout(timer);
   }, [query, resources]);
-const bookGenres = useMemo(() => {
-  const set = new Set<string>();
-  resources.forEach((r) => {
-    if (r.category === "Books" && r.genre) {
-      set.add(r.genre);
+  const bookGenres = useMemo(() => {
+    const set = new Set<string>();
+    resources.forEach((r) => {
+      if (r.category === "Books" && r.genre) {
+        set.add(r.genre);
+      }
+    });
+    return Array.from(set).sort();
+  }, [resources]);
+
+  const filtered = resources.filter((r) => {
+    const matchesSearch =
+      r.title.toLowerCase().includes(query.toLowerCase()) ||
+      r.description.toLowerCase().includes(query.toLowerCase());
+
+    const matchesCat = selectedCat === "All" || r.category === selectedCat;
+
+    const matchesGenre =
+      selectedCat !== "Books" ||
+      selectedGenre === "All" ||
+      r.genre === selectedGenre;
+
+    return matchesSearch && matchesCat && matchesGenre;
+  });
+
+  const sortedResources = useMemo(() => {
+    const arr = [...filtered];
+    if (sortBy === "popularity") {
+      return arr.sort((a, b) => {
+        const aRatings = a.ratings
+          ? Object.values(a.ratings).map((r) => Number(r))
+          : [];
+        const bRatings = b.ratings
+          ? Object.values(b.ratings).map((r) => Number(r))
+          : [];
+
+        const aAvg =
+          aRatings.length > 0
+            ? aRatings.reduce((s, r) => s + r, 0) / aRatings.length
+            : 0;
+        const bAvg =
+          bRatings.length > 0
+            ? bRatings.reduce((s, r) => s + r, 0) / bRatings.length
+            : 0;
+
+        const aComments = a.comments ? Object.keys(a.comments).length : 0;
+        const bComments = b.comments ? Object.keys(b.comments).length : 0;
+
+        const aScore = aRatings.length * 5 + aAvg * 10 + aComments * 2;
+        const bScore = bRatings.length * 5 + bAvg * 10 + bComments * 2;
+
+        return bScore - aScore;
+      });
     }
-  });
-  return Array.from(set).sort();
-}, [resources]);
 
-const filtered = resources.filter((r) => {
-  const matchesSearch =
-    r.title.toLowerCase().includes(query.toLowerCase()) ||
-    r.description.toLowerCase().includes(query.toLowerCase());
+    if (sortBy === "rating") {
+      return arr.sort((a, b) => {
+        const aRatings = a.ratings
+          ? Object.values(a.ratings).map((r) => Number(r))
+          : [];
+        const bRatings = b.ratings
+          ? Object.values(b.ratings).map((r) => Number(r))
+          : [];
 
-  const matchesCat = selectedCat === "All" || r.category === selectedCat;
+        const aAvg =
+          aRatings.length > 0
+            ? aRatings.reduce((s, r) => s + r, 0) / aRatings.length
+            : 0;
+        const bAvg =
+          bRatings.length > 0
+            ? bRatings.reduce((s, r) => s + r, 0) / bRatings.length
+            : 0;
 
-  const matchesGenre =
-    selectedCat !== "Books" ||
-    selectedGenre === "All" ||
-    r.genre === selectedGenre;
+        return bAvg - aAvg;
+      });
+    }
 
-  return matchesSearch && matchesCat && matchesGenre;
-});
+    if (sortBy === "comments") {
+      return arr.sort((a, b) => {
+        const aCount = a.comments ? Object.keys(a.comments).length : 0;
+        const bCount = b.comments ? Object.keys(b.comments).length : 0;
+        return bCount - aCount;
+      });
+    }
 
-
-const sortedResources = useMemo(() => {
-  const arr = [...filtered];
-if (sortBy === "popularity") {
-  return arr.sort((a, b) => {
-    const aRatings = a.ratings
-      ? Object.values(a.ratings).map((r) => Number(r))
-      : [];
-    const bRatings = b.ratings
-      ? Object.values(b.ratings).map((r) => Number(r))
-      : [];
-
-    const aAvg =
-      aRatings.length > 0
-        ? aRatings.reduce((s, r) => s + r, 0) / aRatings.length
-        : 0;
-    const bAvg =
-      bRatings.length > 0
-        ? bRatings.reduce((s, r) => s + r, 0) / bRatings.length
-        : 0;
-
-    const aComments = a.comments ? Object.keys(a.comments).length : 0;
-    const bComments = b.comments ? Object.keys(b.comments).length : 0;
-
-    const aScore = aRatings.length * 5 + aAvg * 10 + aComments * 2;
-    const bScore = bRatings.length * 5 + bAvg * 10 + bComments * 2;
-
-    return bScore - aScore;
-  });
-}
-
-  if (sortBy === "rating") {
-    return arr.sort((a, b) => {
-      const aRatings = a.ratings
-        ? Object.values(a.ratings).map((r) => Number(r))
-        : [];
-      const bRatings = b.ratings
-        ? Object.values(b.ratings).map((r) => Number(r))
-        : [];
-
-      const aAvg =
-        aRatings.length > 0
-          ? aRatings.reduce((s, r) => s + r, 0) / aRatings.length
-          : 0;
-      const bAvg =
-        bRatings.length > 0
-          ? bRatings.reduce((s, r) => s + r, 0) / bRatings.length
-          : 0;
-
-      return bAvg - aAvg;
-    });
-  }
-
-  if (sortBy === "comments") {
-    return arr.sort((a, b) => {
-      const aCount = a.comments ? Object.keys(a.comments).length : 0;
-      const bCount = b.comments ? Object.keys(b.comments).length : 0;
-      return bCount - aCount;
-    });
-  }
-
-  // newest (default)
-  return arr.sort((a, b) => b.createdAt - a.createdAt);
-}, [filtered, sortBy]);
+    // newest (default)
+    return arr.sort((a, b) => b.createdAt - a.createdAt);
+  }, [filtered, sortBy]);
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-12">
@@ -2270,86 +2311,83 @@ if (sortBy === "popularity") {
           />
         </div>
       </section>
-{/* 📊 Platform Stats Bar */}
-<div className="mb-12 grid grid-cols-1 sm:grid-cols-3 gap-6">
-  <div className="bg-white rounded-2xl p-6 text-center shadow-sm border">
-    <p className="text-3xl font-black text-indigo-600">
-      {stats.totalResources}
-    </p>
-    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
-      Resources Shared
-    </p>
-  </div>
+      {/* 📊 Platform Stats Bar */}
+      <div className="mb-12 grid grid-cols-1 sm:grid-cols-3 gap-6">
+        <div className="bg-white rounded-2xl p-6 text-center shadow-sm border">
+          <p className="text-3xl font-black text-indigo-600">
+            {stats.totalResources}
+          </p>
+          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+            Resources Shared
+          </p>
+        </div>
 
-  <div className="bg-white rounded-2xl p-6 text-center shadow-sm border">
-    <p className="text-3xl font-black text-green-600">
-      {stats.totalDownloads}
-    </p>
-    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
-      Downloads
-    </p>
-  </div>
+        <div className="bg-white rounded-2xl p-6 text-center shadow-sm border">
+          <p className="text-3xl font-black text-green-600">
+            {stats.totalDownloads}
+          </p>
+          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+            Downloads
+          </p>
+        </div>
 
-  <div className="bg-white rounded-2xl p-6 text-center shadow-sm border">
-    <p className="text-3xl font-black text-amber-600">
-      {stats.totalViews}
-    </p>
-    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
-      Views
-    </p>
-  </div>
-</div>
-
-        
+        <div className="bg-white rounded-2xl p-6 text-center shadow-sm border">
+          <p className="text-3xl font-black text-amber-600">
+            {stats.totalViews}
+          </p>
+          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+            Views
+          </p>
+        </div>
+      </div>
 
       <div className="bg-white rounded-3xl p-8 border border-slate-100 shadow-xl mb-12">
-  <h3 className="text-xl font-black text-slate-900 mb-4">
-    🤖 Ask Hydra AI
-  </h3>
+        <h3 className="text-xl font-black text-slate-900 mb-4">
+          🤖 Ask Hydra AI
+        </h3>
 
-  <div className="flex gap-3">
-    <input
-      value={aiInput}
-      onChange={(e) => setAiInput(e.target.value)}
-      placeholder="Ask for notes, kits, subjects..."
-      className="flex-1 px-6 py-4 rounded-2xl border border-slate-200 font-bold"
-    />
-    <button
-      onClick={handleAiSearch}
-      disabled={aiLoading}
-      className="px-6 py-4 bg-indigo-600 text-white rounded-2xl font-black"
-    >
-      {aiLoading ? "Thinking..." : "Ask"}
-    </button>
-  </div>
-
-  {aiReply && (
-    <p className="mt-4 text-sm text-slate-600 font-medium">
-      🤖 {aiReply}
-    </p>
-  )}
-
-  {aiMatches.length > 0 && (
-    <div className="mt-6 space-y-3">
-      {aiMatches.map((m) => {
-        const res = resources.find(r => r.id === m.resourceId);
-        if (!res) return null;
-
-        return (
-          <div
-            key={m.resourceId}
-            onClick={() => onSelectDetail(res.id)}
-            className="p-4 rounded-xl border border-indigo-100 bg-indigo-50 cursor-pointer hover:bg-white transition"
+        <div className="flex gap-3">
+          <input
+            value={aiInput}
+            onChange={(e) => setAiInput(e.target.value)}
+            placeholder="Ask for notes, kits, subjects..."
+            className="flex-1 px-6 py-4 rounded-2xl border border-slate-200 font-bold"
+          />
+          <button
+            onClick={handleAiSearch}
+            disabled={aiLoading}
+            className="px-6 py-4 bg-indigo-600 text-white rounded-2xl font-black"
           >
-            <p className="font-bold text-slate-900">{res.title}</p>
-            <p className="text-xs text-indigo-500 mt-1">{m.reason}</p>
-          </div>
-        );
-      })}
-    </div>
-  )}
-</div>
+            {aiLoading ? "Thinking..." : "Ask"}
+          </button>
+        </div>
 
+        {aiReply && (
+          <p className="mt-4 text-sm text-slate-600 font-medium">
+            🤖 {aiReply}
+          </p>
+        )}
+
+        {aiMatches.length > 0 && (
+          <div className="mt-6 space-y-3">
+            {aiMatches.map((m) => {
+              const res = resources.find((r) => r.id === m.resourceId);
+              if (!res) return null;
+
+              return (
+                <div
+                  key={m.resourceId}
+                  onClick={() => onSelectDetail(res.id)}
+                  className="p-4 rounded-xl border border-indigo-100 bg-indigo-50 cursor-pointer hover:bg-white transition"
+                >
+                  <p className="font-bold text-slate-900">{res.title}</p>
+                  <p className="text-xs text-indigo-500 mt-1">{m.reason}</p>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
 
       <div className="mb-12">
         <div className="flex overflow-x-auto pb-4 gap-3 no-scrollbar">
@@ -2378,37 +2416,36 @@ if (sortBy === "popularity") {
           ))}
         </div>
       </div>
-{selectedCat === "Books" && (
-  <div className="mb-10 flex justify-start">
-    <select
-      value={selectedGenre}
-      onChange={(e) => setSelectedGenre(e.target.value)}
-      className="px-6 py-3 rounded-2xl border border-slate-100 bg-white text-xs font-bold shadow-sm"
-    >
-      <option value="All">All Genres</option>
-      {bookGenres.map((g) => (
-        <option key={g} value={g}>
-          {g}
-        </option>
-      ))}
-    </select>
-  </div>
-)}
-{/* Sorting Dropdown */}
-{/* Sorting Dropdown */}
-<div className="mb-10 flex justify-end">
-  <select
-    value={sortBy}
-    onChange={(e) => setSortBy(e.target.value as SortOption)}
-    className="px-6 py-3 rounded-2xl border border-slate-100 bg-white text-xs font-bold shadow-sm"
-  >
-    <option value="newest">Newest First</option>
-    <option value="rating">Highest Rated</option>
-    <option value="comments">Most Commented</option>
-    <option value="popularity">Most Popular</option>
-  </select>
-</div>
-
+      {selectedCat === "Books" && (
+        <div className="mb-10 flex justify-start">
+          <select
+            value={selectedGenre}
+            onChange={(e) => setSelectedGenre(e.target.value)}
+            className="px-6 py-3 rounded-2xl border border-slate-100 bg-white text-xs font-bold shadow-sm"
+          >
+            <option value="All">All Genres</option>
+            {bookGenres.map((g) => (
+              <option key={g} value={g}>
+                {g}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+      {/* Sorting Dropdown */}
+      {/* Sorting Dropdown */}
+      <div className="mb-10 flex justify-end">
+        <select
+          value={sortBy}
+          onChange={(e) => setSortBy(e.target.value as SortOption)}
+          className="px-6 py-3 rounded-2xl border border-slate-100 bg-white text-xs font-bold shadow-sm"
+        >
+          <option value="newest">Newest First</option>
+          <option value="rating">Highest Rated</option>
+          <option value="comments">Most Commented</option>
+          <option value="popularity">Most Popular</option>
+        </select>
+      </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10">
         {sortedResources.map((res) => (
@@ -2454,8 +2491,7 @@ const BadgeCongratsModal = ({
   badge: string;
   onClose: () => void;
 }) => {
-const meta =
-  BADGE_META[badge] || {
+  const meta = BADGE_META[badge] || {
     title: badge,
     icon: "🏅",
     bg: "bg-slate-100",
@@ -2534,6 +2570,5 @@ const ConfettiRain = () => {
     </>
   );
 };
-
 
 export default App;
