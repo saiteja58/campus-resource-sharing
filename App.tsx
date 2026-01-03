@@ -28,7 +28,15 @@ import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
 const googleProvider = new GoogleAuthProvider();
 
 // Fixed Firebase database imports by removing unused members (query, orderByChild) and standardizing named imports
-import { ref, onValue, push, set, update } from "firebase/database";
+import {
+  ref,
+  onValue,
+  push,
+  set,
+  update,
+  serverTimestamp,
+} from "firebase/database";
+
 import { auth, rtdb } from "./firebase";
 import {
   Resource,
@@ -784,8 +792,11 @@ const ChatWindow = ({
   const [msg, setMsg] = useState("");
   const chatEndRef = useRef<HTMLDivElement>(null);
   const messages = request.messages
-    ? Object.values(request.messages).sort((a, b) => a.timestamp - b.timestamp)
-    : [];
+  ? Object.values(request.messages)
+      .filter((m: any) => typeof m.timestamp === "number")
+      .sort((a: any, b: any) => a.timestamp - b.timestamp)
+  : [];
+
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -795,12 +806,13 @@ const ChatWindow = ({
     if (!msg.trim()) return;
     const msgRef = push(ref(rtdb, `requests/${request.id}/messages`));
     await set(msgRef, {
-      id: msgRef.key,
-      senderId: user.id,
-      senderName: user.name,
-      text: msg,
-      timestamp: Date.now(),
-    });
+  id: msgRef.key,
+  senderId: user.id,
+  senderName: user.name,
+  text: msg,
+  timestamp: serverTimestamp(), // ✅ SERVER TIME
+});
+
     setMsg("");
   };
 
@@ -1689,21 +1701,22 @@ const App: React.FC = () => {
 
     const messageRef = push(ref(rtdb, `requests/${requestRef.key}/messages`));
 
-    await set(requestRef, {
-      resourceId: showRequestModal,
-      requesterId: currentUser.id,
-      requesterName: currentUser.name,
-      status: "pending",
-      timestamp: Date.now(),
-    });
+   await set(requestRef, {
+  resourceId: showRequestModal,
+  requesterId: currentUser.id,
+  requesterName: currentUser.name,
+  status: "pending",
+  timestamp: serverTimestamp(), // ✅
+});
 
-    await set(messageRef, {
-      id: messageRef.key,
-      senderId: currentUser.id,
-      senderName: currentUser.name,
-      text: reqMsg,
-      timestamp: Date.now(),
-    });
+await set(messageRef, {
+  id: messageRef.key,
+  senderId: currentUser.id,
+  senderName: currentUser.name,
+  text: reqMsg,
+  timestamp: serverTimestamp(), // ✅
+});
+
 
     setShowRequestModal(null);
     setReqMsg("");
