@@ -54,8 +54,6 @@ export interface Resource {
   ownerName: string;
   college: string;
   status: "available" | "borrowed";
-
-  status: 'available' | 'borrowed';
   genre?: string;
   createdAt: number;
 

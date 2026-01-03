@@ -34,6 +34,7 @@ Available resources:
 ${JSON.stringify(compactResources, null, 2)}
 
 Rules:
+- Try matching the similarity in user input and the resources availabale, analyze the both components
 - If nothing matches, return an empty array.
 - ALWAYS return valid JSON.
 - DO NOT add explanations outside JSON.
