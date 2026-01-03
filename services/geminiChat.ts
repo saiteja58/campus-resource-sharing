@@ -2,7 +2,7 @@ import { GoogleGenAI } from "@google/genai";
 import { Resource } from "../types";
 
 const ai = new GoogleGenAI({
-  apiKey: import.meta.env.VITE_GEMINI_API_KEY,
+  apiKey: import.meta.env.VITE_GEMINI_API,
 });
 
 export async function getGeminiChatResponse(
